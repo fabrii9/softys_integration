@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# macOS
+.DS_Store
+
+# Odoo
+*.csv
+!security/ir.model.access.csv
+!data/*.csv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

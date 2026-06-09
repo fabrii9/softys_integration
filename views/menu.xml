@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+    <!-- Menú Principal -->
+    <menuitem id="menu_softys_root"
+              name="Integración Softys"
+              sequence="100"
+              web_icon="softys_integration,static/description/icon.png"/>
+    
+    <!-- Submenu Configuración -->
+    <menuitem id="menu_softys_config"
+              name="Configuración"
+              parent="menu_softys_root"
+              sequence="10"/>
+    
+    <!-- Submenu Exportaciones -->
+    <menuitem id="menu_softys_exports"
+              name="Exportaciones"
+              parent="menu_softys_root"
+              sequence="20"/>
+    
+    <!-- Submenu Maestros -->
+    <menuitem id="menu_softys_masters"
+              name="Maestros"
+              parent="menu_softys_root"
+              sequence="30"/>
+    
+</odoo>

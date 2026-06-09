@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Subcanales de venta Nextbyn -->
+        <record id="subcanal_almacen" model="softys.subcanal">
+            <field name="nombre">Almacén</field>
+            <field name="codigo">01</field>
+            <field name="canal_id" ref="canal_tradicional"/>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="subcanal_kiosco" model="softys.subcanal">
+            <field name="nombre">Kiosco</field>
+            <field name="codigo">02</field>
+            <field name="canal_id" ref="canal_tradicional"/>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="subcanal_supermercado" model="softys.subcanal">
+            <field name="nombre">Supermercado</field>
+            <field name="codigo">01</field>
+            <field name="canal_id" ref="canal_moderno"/>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="subcanal_hipermercado" model="softys.subcanal">
+            <field name="nombre">Hipermercado</field>
+            <field name="codigo">02</field>
+            <field name="canal_id" ref="canal_moderno"/>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="subcanal_distribuidor" model="softys.subcanal">
+            <field name="nombre">Distribuidor</field>
+            <field name="codigo">01</field>
+            <field name="canal_id" ref="canal_mayorista"/>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

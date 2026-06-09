@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- ============================================================ -->
+        <!-- MODELO: CRON DE EXPORTACIÓN NEXTBYN -->
+        <!-- ============================================================ -->
+        
+        <!-- Cron principal - Exportación automática -->
+        <record id="ir_cron_nextbyn_export" model="ir.cron">
+            <field name="name">Nextbyn: Exportación Automática</field>
+            <field name="model_id" ref="model_nextbyn_export_cron"/>
+            <field name="state">code</field>
+            <field name="code">model.run_scheduled_export()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">False</field>
+        </record>
+        
+        <!-- Cron de Stock - Puede ejecutarse más frecuentemente -->
+        <record id="ir_cron_nextbyn_export_stock" model="ir.cron">
+            <field name="name">Nextbyn: Exportación Stock Físico</field>
+            <field name="model_id" ref="model_nextbyn_export_cron"/>
+            <field name="state">code</field>
+            <field name="code">model.run_entity_export('StockFisico')</field>
+            <field name="interval_number">4</field>
+            <field name="interval_type">hours</field>
+            <field name="active">False</field>
+        </record>
+        
+        <!-- Cron de Comprobantes - Para sincronizar facturas nuevas -->
+        <record id="ir_cron_nextbyn_export_comprobantes" model="ir.cron">
+            <field name="name">Nextbyn: Exportación Comprobantes</field>
+            <field name="model_id" ref="model_nextbyn_export_cron"/>
+            <field name="state">code</field>
+            <field name="code">model.run_entity_export('Comprobantes')</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="active">False</field>
+        </record>
+
+    </data>
+</odoo>

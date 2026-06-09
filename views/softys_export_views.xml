@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+    <!-- Action para Archivos (definido primero porque es referenciado por la vista form) -->
+    <record id="action_softys_export_file" model="ir.actions.act_window">
+        <field name="name">Archivos CSV</field>
+        <field name="res_model">softys.export.file</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+    <!-- Form View -->
+    <record id="view_softys_export_run_form" model="ir.ui.view">
+        <field name="name">softys.export.run.form</field>
+        <field name="model">softys.export.run</field>
+        <field name="arch" type="xml">
+            <form string="Exportación Softys" create="false" delete="false">
+                <header>
+                    <button name="action_run_export" string="Ejecutar Exportación" 
+                            type="object" class="oe_highlight" 
+                            invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar" 
+                           statusbar_visible="draft,running,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="%(action_softys_export_file)d" type="action"
+                                class="oe_stat_button" icon="fa-file">
+                            <field name="file_count" widget="statinfo" string="Archivos"/>
+                        </button>
+                    </div>
+                    
+                    <div class="oe_title">
+                        <h1><field name="display_name"/></h1>
+                    </div>
+                    
+                    <group>
+                        <group>
+                            <field name="connector_id"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="duration"/>
+                        </group>
+                        <group>
+                            <field name="error_count"/>
+                            <field name="warning_count"/>
+                        </group>
+                    </group>
+                    
+                    <notebook>
+                        <page string="Estadísticas">
+                            <group>
+                                <group string="Archivos Generados">
+                                    <field name="total_clientes"/>
+                                    <field name="total_articulos"/>
+                                    <field name="total_comprobantes"/>
+                                    <field name="total_lineas"/>
+                                </group>
+                                <group>
+                                    <field name="total_personal"/>
+                                    <field name="total_clientes_ruta"/>
+                                    <field name="total_rutas"/>
+                                    <field name="total_stock"/>
+                                </group>
+                            </group>
+                        </page>
+                        
+                        <page string="Archivos">
+                            <field name="file_ids">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="file_type"/>
+                                    <field name="row_count"/>
+                                    <field name="file_size"/>
+                                    <field name="create_date"/>
+                                </list>
+                            </field>
+                        </page>
+                        
+                        <page string="Logs">
+                            <field name="log_ids">
+                                <list decoration-danger="level == 'error'" 
+                                      decoration-warning="level == 'warning'">
+                                    <field name="create_date"/>
+                                    <field name="level" widget="badge" 
+                                           decoration-info="level == 'info'"
+                                           decoration-warning="level == 'warning'"
+                                           decoration-danger="level == 'error'"/>
+                                    <field name="message"/>
+                                </list>
+                            </field>
+                        </page>
+                        
+                        <page string="Notas">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <!-- List View -->
+    <record id="view_softys_export_run_tree" model="ir.ui.view">
+        <field name="name">softys.export.run.list</field>
+        <field name="model">softys.export.run</field>
+        <field name="arch" type="xml">
+            <list string="Exportaciones Softys" create="false">
+                <field name="create_date"/>
+                <field name="connector_id"/>
+                <field name="state" widget="badge" 
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'running'"
+                       decoration-success="state == 'done'"
+                       decoration-danger="state == 'failed'"/>
+                <field name="duration"/>
+                <field name="file_count"/>
+                <field name="error_count"/>
+                <field name="warning_count"/>
+            </list>
+        </field>
+    </record>
+    
+    <!-- Action -->
+    <record id="action_softys_export_run" model="ir.actions.act_window">
+        <field name="name">Exportaciones</field>
+        <field name="res_model">softys.export.run</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'create': False}</field>
+    </record>
+    
+    <!-- Menu -->
+    <menuitem id="menu_softys_export_run"
+              name="Historial"
+              parent="menu_softys_exports"
+              action="action_softys_export_run"
+              sequence="20"/>
+    
+    <!-- Archivos -->
+    <record id="view_softys_export_file_form" model="ir.ui.view">
+        <field name="name">softys.export.file.form</field>
+        <field name="model">softys.export.file</field>
+        <field name="arch" type="xml">
+            <form string="Archivo Exportación" create="false" edit="false" delete="false">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="file_type"/>
+                            <field name="run_id"/>
+                        </group>
+                        <group>
+                            <field name="row_count"/>
+                            <field name="file_size"/>
+                            <field name="create_date"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="datas" filename="name"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <record id="view_softys_export_file_tree" model="ir.ui.view">
+        <field name="name">softys.export.file.list</field>
+        <field name="model">softys.export.file</field>
+        <field name="arch" type="xml">
+            <list string="Archivos CSV">
+                <field name="create_date"/>
+                <field name="name"/>
+                <field name="file_type"/>
+                <field name="row_count"/>
+                <field name="file_size"/>
+                <field name="run_id"/>
+            </list>
+        </field>
+    </record>
+    
+</odoo>

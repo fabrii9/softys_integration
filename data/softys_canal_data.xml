@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Canales de venta Nextbyn -->
+        <record id="canal_tradicional" model="softys.canal">
+            <field name="nombre">Tradicional</field>
+            <field name="codigo">01</field>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="canal_moderno" model="softys.canal">
+            <field name="nombre">Moderno</field>
+            <field name="codigo">02</field>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="canal_mayorista" model="softys.canal">
+            <field name="nombre">Mayorista</field>
+            <field name="codigo">03</field>
+            <field name="active">True</field>
+        </record>
+        
+        <record id="canal_institucional" model="softys.canal">
+            <field name="nombre">Institucional</field>
+            <field name="codigo">04</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

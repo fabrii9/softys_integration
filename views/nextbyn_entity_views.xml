@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- ENTIDAD DE EXPORTACIÓN - VISTAS -->
+    <!-- ============================================================ -->
+    
+    <!-- List View - Entidades -->
+    <record id="nextbyn_export_entity_view_tree" model="ir.ui.view">
+        <field name="name">nextbyn.export.entity.list</field>
+        <field name="model">nextbyn.export.entity</field>
+        <field name="arch" type="xml">
+            <list string="Entidades Nextbyn">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="model_id"/>
+                <field name="field_count"/>
+                <field name="last_export_date"/>
+                <field name="last_export_count"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    
+    <!-- Form View - Entidad -->
+    <record id="nextbyn_export_entity_view_form" model="ir.ui.view">
+        <field name="name">nextbyn.export.entity.form</field>
+        <field name="model">nextbyn.export.entity</field>
+        <field name="arch" type="xml">
+            <form string="Entidad de Exportación Nextbyn">
+                <header>
+                    <button name="action_preview_data" type="object" 
+                            string="Vista Previa" class="btn-secondary"
+                            icon="fa-eye"/>
+                    <button name="action_test_export" type="object" 
+                            string="Probar Exportación" class="btn-primary"
+                            icon="fa-play"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_fields" type="object" 
+                                class="oe_stat_button" icon="fa-list">
+                            <field name="field_count" widget="statinfo" string="Campos"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Inactivo" bg_color="bg-danger" 
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Ej: Articulos"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Configuración">
+                            <field name="model_id" options="{'no_create': True}"/>
+                            <field name="model_name" invisible="1"/>
+                            <field name="connector_id"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Formato CSV">
+                            <field name="include_header"/>
+                            <field name="separator"/>
+                            <field name="encoding"/>
+                        </group>
+                    </group>
+                    <group string="Filtro de Datos">
+                        <field name="domain" widget="domain" 
+                               options="{'model': 'model_name'}"/>
+                    </group>
+                    <notebook>
+                        <page string="Campos" name="fields">
+                            <field name="field_ids" context="{'default_entity_id': id}">
+                                <list string="Campos" editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="nextbyn_name"/>
+                                    <field name="source_type"/>
+                                    <field name="field_id" 
+                                           domain="[('model_id', '=', parent.model_id)]"
+                                           invisible="source_type != 'field'"
+                                           options="{'no_create': True}"/>
+                                    <field name="related_field_path" 
+                                           invisible="source_type != 'related'"/>
+                                    <field name="python_expression" 
+                                           invisible="source_type != 'expression'"/>
+                                    <field name="fixed_value" 
+                                           invisible="source_type != 'fixed'"/>
+                                    <field name="data_type"/>
+                                    <field name="bool_format" 
+                                           invisible="data_type != 'boolean'"/>
+                                    <field name="date_format" 
+                                           invisible="data_type not in ['date', 'datetime']"/>
+                                    <field name="decimal_places" 
+                                           invisible="data_type != 'float'"/>
+                                    <field name="required"/>
+                                    <field name="default_value"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Documentación" name="docs">
+                            <field name="notes" placeholder="Notas sobre esta entidad según documentación Nextbyn..."/>
+                        </page>
+                        <page string="Estadísticas" name="stats">
+                            <group>
+                                <group>
+                                    <field name="last_export_date"/>
+                                    <field name="last_export_count"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <!-- ============================================================ -->
+    <!-- CAMPO DE EXPORTACIÓN - VISTAS -->
+    <!-- ============================================================ -->
+    
+    <!-- Form View - Campo (detallado) -->
+    <record id="nextbyn_export_field_view_form" model="ir.ui.view">
+        <field name="name">nextbyn.export.field.form</field>
+        <field name="model">nextbyn.export.field</field>
+        <field name="arch" type="xml">
+            <form string="Campo de Exportación">
+                <sheet>
+                    <group>
+                        <group string="Identificación">
+                            <field name="entity_id"/>
+                            <field name="sequence"/>
+                            <field name="nextbyn_name"/>
+                            <field name="required"/>
+                        </group>
+                        <group string="Origen del Valor">
+                            <field name="source_type"/>
+                            <field name="field_id" 
+                                   domain="[('model_id', '=', entity_id.model_id)]"
+                                   options="{'no_create': True}"
+                                   invisible="source_type != 'field'"
+                                   required="source_type == 'field'"/>
+                            <field name="related_field_path" 
+                                   invisible="source_type != 'related'"
+                                   required="source_type == 'related'"/>
+                            <field name="python_expression" 
+                                   invisible="source_type != 'expression'"
+                                   required="source_type == 'expression'"/>
+                            <field name="fixed_value" 
+                                   invisible="source_type != 'fixed'"
+                                   required="source_type == 'fixed'"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Tipo y Formato">
+                            <field name="data_type"/>
+                            <field name="bool_format" invisible="data_type != 'boolean'"/>
+                            <field name="date_format" invisible="data_type not in ['date', 'datetime']"/>
+                            <field name="time_format" invisible="data_type not in ['time', 'datetime']"/>
+                            <field name="decimal_places" invisible="data_type != 'float'"/>
+                            <field name="decimal_separator" invisible="data_type != 'float'"/>
+                        </group>
+                        <group string="Restricciones">
+                            <field name="max_length"/>
+                            <field name="default_value"/>
+                        </group>
+                    </group>
+                    <group string="Transformaciones">
+                        <group>
+                            <field name="trim_spaces"/>
+                            <field name="remove_line_breaks"/>
+                            <field name="uppercase"/>
+                        </group>
+                    </group>
+                    <group string="Documentación">
+                        <field name="notes" placeholder="Descripción del campo según documentación Nextbyn..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    
+    <!-- List View - Campos -->
+    <record id="nextbyn_export_field_view_tree" model="ir.ui.view">
+        <field name="name">nextbyn.export.field.list</field>
+        <field name="model">nextbyn.export.field</field>
+        <field name="arch" type="xml">
+            <list string="Campos de Exportación" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="nextbyn_name"/>
+                <field name="entity_id"/>
+                <field name="source_type"/>
+                <field name="field_id"/>
+                <field name="data_type"/>
+                <field name="required"/>
+            </list>
+        </field>
+    </record>
+    
+    <!-- ============================================================ -->
+    <!-- WIZARD PREVIEW -->
+    <!-- ============================================================ -->
+    
+    <record id="nextbyn_preview_wizard_view_form" model="ir.ui.view">
+        <field name="name">nextbyn.preview.wizard.form</field>
+        <field name="model">nextbyn.preview.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Vista Previa">
+                <group>
+                    <field name="entity_id" readonly="1"/>
+                    <field name="record_count"/>
+                    <field name="csv_file" invisible="1"/>
+                    <field name="csv_filename" invisible="1"/>
+                </group>
+                <group>
+                    <field name="preview_text" widget="ace" 
+                           options="{'mode': 'text'}" 
+                           readonly="1"/>
+                </group>
+                <footer>
+                    <button string="Descargar CSV" name="action_download_csv" 
+                            type="object" class="btn-primary" icon="fa-download"/>
+                    <button string="Cerrar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    
+    <!-- ============================================================ -->
+    <!-- ACCIONES -->
+    <!-- ============================================================ -->
+    
+    <record id="nextbyn_export_entity_action" model="ir.actions.act_window">
+        <field name="name">Configuración de CSVs</field>
+        <field name="res_model">nextbyn.export.entity</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crear una nueva entidad de exportación
+            </p>
+            <p>
+                Configure aquí cada archivo CSV que desea exportar a Nextbyn.
+                Defina los campos, mapeos y formatos según la documentación oficial.
+            </p>
+        </field>
+    </record>
+    
+    <record id="nextbyn_export_field_action" model="ir.actions.act_window">
+        <field name="name">Campos de Exportación</field>
+        <field name="res_model">nextbyn.export.field</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    
+    <!-- ============================================================ -->
+    <!-- MENÚS -->
+    <!-- ============================================================ -->
+    
+    <menuitem id="menu_nextbyn_config_csv"
+              name="Configuración CSVs"
+              parent="menu_softys_config"
+              action="nextbyn_export_entity_action"
+              sequence="5"/>
+
+</odoo>

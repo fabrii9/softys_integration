@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        
+        <!-- ============================================================ -->
+        <!-- ENTIDAD: ARTICULOS -->
+        <!-- ============================================================ -->
+        
+        <record id="entity_articulos" model="nextbyn.export.entity">
+            <field name="name">Articulos</field>
+            <field name="sequence">10</field>
+            <field name="model_id" ref="product.model_product_product"/>
+            <field name="domain">[('x_softys_producto', '=', True)]</field>
+            <field name="include_header">True</field>
+            <field name="separator">;</field>
+            <field name="notes">Archivo de artículos/productos según documentación Nextbyn.
+Campos obligatorios: CodigoArticulo, DescripcionArticulo, Anulado, UnidadesXBulto</field>
+        </record>
+        
+        <!-- Campos de Articulos -->
+        <record id="field_articulos_codigo" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">10</field>
+            <field name="nextbyn_name">CodigoArticulo</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="product.field_product_product__id"/>
+            <field name="data_type">integer</field>
+            <field name="required">True</field>
+            <field name="notes">Numérico - Código único del artículo</field>
+        </record>
+        
+        <record id="field_articulos_descripcion" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">20</field>
+            <field name="nextbyn_name">DescripcionArticulo</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="product.field_product_product__name"/>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="required">True</field>
+            <field name="notes">Texto(50) - Descripción del artículo</field>
+        </record>
+        
+        <record id="field_articulos_anulado" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">30</field>
+            <field name="nextbyn_name">Anulado</field>
+            <field name="source_type">expression</field>
+            <field name="python_expression">not record.active</field>
+            <field name="data_type">boolean</field>
+            <field name="bool_format">SINO_upper</field>
+            <field name="required">True</field>
+            <field name="notes">Bool - NO/SI. Si el artículo está anulado</field>
+        </record>
+        
+        <record id="field_articulos_unidades_bulto" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">40</field>
+            <field name="nextbyn_name">UnidadesXBulto</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_unidades_bulto</field>
+            <field name="data_type">integer</field>
+            <field name="default_value">1</field>
+            <field name="required">True</field>
+            <field name="notes">Numérico - En cuántas unidades fracciona la distribuidora</field>
+        </record>
+        
+        <record id="field_articulos_valor_umedida" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">50</field>
+            <field name="nextbyn_name">ValorUMedida</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_valor_umedida</field>
+            <field name="data_type">float</field>
+            <field name="decimal_places">4</field>
+            <field name="default_value">0</field>
+            <field name="notes">Decimal - Convierte bulto a otra unidad de medida</field>
+        </record>
+        
+        <record id="field_articulos_unidad_medida" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">60</field>
+            <field name="nextbyn_name">UnidadMedida</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">uom_id.name</field>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="default_value">UN</field>
+            <field name="notes">Texto(50) - Nombre de la unidad de medida</field>
+        </record>
+        
+        <record id="field_articulos_ean_bulto" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">70</field>
+            <field name="nextbyn_name">CodigoEANBulto</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="product.field_product_product__barcode"/>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="notes">Texto(50) - Código EAN del bulto</field>
+        </record>
+        
+        <record id="field_articulos_ean_unidad" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">80</field>
+            <field name="nextbyn_name">CodigoEANUnidad</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_ean_unidad</field>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="notes">Texto(50) - Código EAN de las unidades sueltas</field>
+        </record>
+        
+        <record id="field_articulos_retornable" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">90</field>
+            <field name="nextbyn_name">Retornable</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_retornable</field>
+            <field name="data_type">boolean</field>
+            <field name="bool_format">01</field>
+            <field name="default_value">0</field>
+            <field name="notes">Bool - 0/1. Si es un artículo retornable</field>
+        </record>
+        
+        <record id="field_articulos_activo_fijo" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_articulos"/>
+            <field name="sequence">100</field>
+            <field name="nextbyn_name">ActivoFijo</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_activo_fijo</field>
+            <field name="data_type">boolean</field>
+            <field name="bool_format">01</field>
+            <field name="default_value">0</field>
+            <field name="notes">Bool - 0/1. Si es un activo fijo</field>
+        </record>
+        
+        <!-- ============================================================ -->
+        <!-- ENTIDAD: CLIENTES -->
+        <!-- ============================================================ -->
+        
+        <record id="entity_clientes" model="nextbyn.export.entity">
+            <field name="name">Clientes</field>
+            <field name="sequence">20</field>
+            <field name="model_id" ref="base.model_res_partner"/>
+            <field name="domain">[('x_softys_exportar', '=', True), ('customer_rank', '>', 0)]</field>
+            <field name="include_header">True</field>
+            <field name="separator">;</field>
+            <field name="notes">Archivo de clientes según documentación Nextbyn.
+Campos clave: CodigoSucursal + CodigoCliente</field>
+        </record>
+        
+        <!-- Campos de Clientes (principales) -->
+        <record id="field_clientes_sucursal" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">10</field>
+            <field name="nextbyn_name">CodigoSucursal</field>
+            <field name="source_type">fixed</field>
+            <field name="fixed_value">1</field>
+            <field name="data_type">integer</field>
+            <field name="required">True</field>
+            <field name="notes">Numérico - Código de sucursal (configurar valor)</field>
+        </record>
+        
+        <record id="field_clientes_codigo" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">20</field>
+            <field name="nextbyn_name">CodigoCliente</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="base.field_res_partner__id"/>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="required">True</field>
+            <field name="notes">Texto(50) - Código único del cliente</field>
+        </record>
+        
+        <record id="field_clientes_nombre" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">30</field>
+            <field name="nextbyn_name">Nombre</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="base.field_res_partner__name"/>
+            <field name="data_type">string</field>
+            <field name="max_length">100</field>
+            <field name="required">True</field>
+            <field name="notes">Texto(100) - Nombre o razón social</field>
+        </record>
+        
+        <record id="field_clientes_domicilio" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">40</field>
+            <field name="nextbyn_name">Domicilio</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">contact_address</field>
+            <field name="data_type">string</field>
+            <field name="max_length">100</field>
+            <field name="notes">Texto(100) - Dirección completa</field>
+        </record>
+        
+        <record id="field_clientes_cuit" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">50</field>
+            <field name="nextbyn_name">NumeroCuit</field>
+            <field name="source_type">expression</field>
+            <field name="python_expression">(record.vat or '').replace('-', '')</field>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="notes">Texto(50) - CUIT sin guiones</field>
+        </record>
+        
+        <record id="field_clientes_canal" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">60</field>
+            <field name="nextbyn_name">IdCanalAgrupa</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_canal_id.id</field>
+            <field name="data_type">integer</field>
+            <field name="default_value">0</field>
+            <field name="notes">Numérico - ID del canal comercial</field>
+        </record>
+        
+        <record id="field_clientes_desc_canal" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">70</field>
+            <field name="nextbyn_name">DescCanalAgrupa</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_canal_id.nombre</field>
+            <field name="data_type">string</field>
+            <field name="max_length">100</field>
+            <field name="notes">Texto(100) - Descripción del canal</field>
+        </record>
+        
+        <record id="field_clientes_subcanal" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">80</field>
+            <field name="nextbyn_name">IdSubCanalAgrupa</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_subcanal_id.id</field>
+            <field name="data_type">integer</field>
+            <field name="default_value">0</field>
+            <field name="notes">Numérico - ID del subcanal</field>
+        </record>
+        
+        <record id="field_clientes_desc_subcanal" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">90</field>
+            <field name="nextbyn_name">DescSubCanalAgrupa</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_subcanal_id.nombre</field>
+            <field name="data_type">string</field>
+            <field name="max_length">100</field>
+            <field name="notes">Texto(100) - Descripción del subcanal</field>
+        </record>
+        
+        <record id="field_clientes_fecha_alta" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">100</field>
+            <field name="nextbyn_name">FechaAlta</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="base.field_res_partner__create_date"/>
+            <field name="data_type">date</field>
+            <field name="date_format">dd/MM/yyyy</field>
+            <field name="notes">Fecha - dd/MM/yyyy - Fecha de alta</field>
+        </record>
+        
+        <record id="field_clientes_anulado" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">110</field>
+            <field name="nextbyn_name">Anulado</field>
+            <field name="source_type">expression</field>
+            <field name="python_expression">not record.active</field>
+            <field name="data_type">boolean</field>
+            <field name="bool_format">sino_lower</field>
+            <field name="notes">Bool - no/si - Si el cliente está anulado</field>
+        </record>
+        
+        <record id="field_clientes_longitud" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">120</field>
+            <field name="nextbyn_name">LongitudCoord</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">partner_longitude</field>
+            <field name="data_type">float</field>
+            <field name="decimal_places">10</field>
+            <field name="default_value">0</field>
+            <field name="notes">Decimal - Coordenada de longitud</field>
+        </record>
+        
+        <record id="field_clientes_latitud" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">130</field>
+            <field name="nextbyn_name">LatitudCoord</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">partner_latitude</field>
+            <field name="data_type">float</field>
+            <field name="decimal_places">10</field>
+            <field name="default_value">0</field>
+            <field name="notes">Decimal - Coordenada de latitud</field>
+        </record>
+        
+        <record id="field_clientes_tipo_contrib" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">140</field>
+            <field name="nextbyn_name">TipoContribuyente</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">x_softys_tipo_contribuyente</field>
+            <field name="data_type">string</field>
+            <field name="max_length">2</field>
+            <field name="default_value">CF</field>
+            <field name="notes">Texto(2) - CF/RI/EX/MT</field>
+        </record>
+        
+        <record id="field_clientes_lista_precio" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">150</field>
+            <field name="nextbyn_name">CodListaPrecio</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">property_product_pricelist.id</field>
+            <field name="data_type">integer</field>
+            <field name="default_value">1</field>
+            <field name="notes">Numérico - Código de lista de precios</field>
+        </record>
+        
+        <record id="field_clientes_tipo_doc" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">160</field>
+            <field name="nextbyn_name">IdTipoDocumentoCliente</field>
+            <field name="source_type">fixed</field>
+            <field name="fixed_value">80</field>
+            <field name="data_type">string</field>
+            <field name="notes">Texto - 80=CUIT, 96=DNI</field>
+        </record>
+        
+        <record id="field_clientes_cod_localidad" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">170</field>
+            <field name="nextbyn_name">CodigoLocalidad</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="base.field_res_partner__zip"/>
+            <field name="data_type">string</field>
+            <field name="max_length">20</field>
+            <field name="notes">Texto(20) - Código postal</field>
+        </record>
+        
+        <record id="field_clientes_localidad" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">180</field>
+            <field name="nextbyn_name">DescripcionLocalidad</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="base.field_res_partner__city"/>
+            <field name="data_type">string</field>
+            <field name="max_length">100</field>
+            <field name="notes">Texto(100) - Ciudad o localidad</field>
+        </record>
+        
+        <record id="field_clientes_cod_provincia" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">190</field>
+            <field name="nextbyn_name">CodigoProvincia</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">state_id.code</field>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="notes">Texto(50) - Código de provincia</field>
+        </record>
+        
+        <record id="field_clientes_provincia" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_clientes"/>
+            <field name="sequence">200</field>
+            <field name="nextbyn_name">DescProvincia</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">state_id.name</field>
+            <field name="data_type">string</field>
+            <field name="max_length">50</field>
+            <field name="notes">Texto(50) - Nombre de provincia</field>
+        </record>
+        
+        <!-- ============================================================ -->
+        <!-- ENTIDAD: STOCK FISICO -->
+        <!-- ============================================================ -->
+        
+        <record id="entity_stock_fisico" model="nextbyn.export.entity">
+            <field name="name">StockFisico</field>
+            <field name="sequence">60</field>
+            <field name="model_id" ref="stock.model_stock_quant"/>
+            <field name="domain">[('quantity', '>', 0), ('location_id.usage', '=', 'internal')]</field>
+            <field name="include_header">True</field>
+            <field name="separator">;</field>
+            <field name="notes">Archivo de stock físico según documentación Nextbyn.
+5 columnas: CodigoDeposito, CodigoArticulo, VencimientoLote, CantidadDecimal, FechaStock</field>
+        </record>
+        
+        <record id="field_stock_deposito" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_stock_fisico"/>
+            <field name="sequence">10</field>
+            <field name="nextbyn_name">CodigoDeposito</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">location_id.warehouse_id.x_softys_codigo_deposito</field>
+            <field name="data_type">integer</field>
+            <field name="default_value">1</field>
+            <field name="required">True</field>
+            <field name="notes">Numérico - Código del depósito</field>
+        </record>
+        
+        <record id="field_stock_articulo" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_stock_fisico"/>
+            <field name="sequence">20</field>
+            <field name="nextbyn_name">CodigoArticulo</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">product_id.id</field>
+            <field name="data_type">integer</field>
+            <field name="required">True</field>
+            <field name="notes">Numérico - Código del producto</field>
+        </record>
+        
+        <record id="field_stock_vencimiento" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_stock_fisico"/>
+            <field name="sequence">30</field>
+            <field name="nextbyn_name">VencimientoLote</field>
+            <field name="source_type">related</field>
+            <field name="related_field_path">lot_id.expiration_date</field>
+            <field name="data_type">date</field>
+            <field name="date_format">yyyy/MM/dd</field>
+            <field name="notes">Fecha - yyyy/MM/dd - Vencimiento del lote</field>
+        </record>
+        
+        <record id="field_stock_cantidad" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_stock_fisico"/>
+            <field name="sequence">40</field>
+            <field name="nextbyn_name">CantidadDecimal</field>
+            <field name="source_type">field</field>
+            <field name="field_id" ref="stock.field_stock_quant__quantity"/>
+            <field name="data_type">float</field>
+            <field name="decimal_places">6</field>
+            <field name="required">True</field>
+            <field name="notes">Decimal - Cantidad en stock</field>
+        </record>
+        
+        <record id="field_stock_fecha" model="nextbyn.export.field">
+            <field name="entity_id" ref="entity_stock_fisico"/>
+            <field name="sequence">50</field>
+            <field name="nextbyn_name">FechaStock</field>
+            <field name="source_type">expression</field>
+            <field name="python_expression">date.today()</field>
+            <field name="data_type">date</field>
+            <field name="date_format">yyyy/MM/dd</field>
+            <field name="required">True</field>
+            <field name="notes">Fecha - yyyy/MM/dd - Fecha del stock (hoy)</field>
+        </record>
+        
+    </data>
+</odoo>
