@@ -184,8 +184,9 @@ class SoftysExportRun(models.Model):
             # Obtener el motor de exportación Nextbyn
             engine = self.env['nextbyn.export.engine']
             
-            # Rango de fechas para comprobantes (últimos 30 días)
-            date_from = fields.Date.today() - timedelta(days=30)
+            # Rango de fechas para comprobantes según configuración del conector
+            days_back = self.connector_id.days_back or 30
+            date_from = fields.Date.today() - timedelta(days=days_back)
             date_to = fields.Date.today()
             
             # Ejecutar exportación completa

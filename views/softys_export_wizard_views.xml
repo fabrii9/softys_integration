@@ -10,46 +10,6 @@
                     <field name="connector_id"/>
                 </group>
                 
-                <notebook>
-                    <page string="Qué Exportar">
-                        <group>
-                            <group>
-                                <field name="export_clientes"/>
-                                <field name="export_articulos"/>
-                                <field name="export_comprobantes"/>
-                                <field name="export_stock"/>
-                            </group>
-                            <group>
-                                <field name="export_personal"/>
-                                <field name="export_clientes_ruta"/>
-                                <field name="export_rutas"/>
-                            </group>
-                        </group>
-                    </page>
-                    
-                    <page string="Filtros">
-                        <group>
-                            <group>
-                                <field name="filter_clientes"/>
-                                <field name="cliente_ids" widget="many2many_tags" 
-                                       invisible="not filter_clientes"/>
-                            </group>
-                            <group>
-                                <field name="filter_articulos"/>
-                                <field name="articulo_ids" widget="many2many_tags" 
-                                       invisible="not filter_articulos"/>
-                            </group>
-                        </group>
-                        
-                        <group>
-                            <group>
-                                <field name="override_days_back"/>
-                                <field name="days_back" invisible="not override_days_back"/>
-                            </group>
-                        </group>
-                    </page>
-                </notebook>
-                
                 <footer>
                     <button string="Exportar" name="action_export" type="object" class="btn-primary"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>

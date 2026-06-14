@@ -121,11 +121,8 @@
         </field>
     </record>
     
-    <!-- Menú -->
-    <menuitem id="menu_nextbyn_cron"
-              name="Programación"
-              parent="menu_softys_config"
-              action="nextbyn_export_cron_action"
-              sequence="10"/>
+    <!-- Menú de Programación eliminado: no es obligatorio para la operación
+         estándar. Las exportaciones se ejecutan manualmente desde el conector. -->
+    <delete model="ir.ui.menu" search="[('id', '=', ref('menu_nextbyn_cron'))]"/>
 
 </odoo>

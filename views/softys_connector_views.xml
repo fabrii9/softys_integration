@@ -22,6 +22,9 @@
                         <group string="Configuración Básica">
                             <field name="company_id"/>
                             <field name="softys_partner_id"/>
+                            <field name="output_storage_type"/>
+                            <field name="output_path"/>
+                            <field name="days_back"/>
                         </group>
                         <group string="Estadísticas">
                             <field name="last_export_date"/>
@@ -31,58 +34,36 @@
                     </group>
                     
                     <notebook>
-                        <page string="Rutas y Archivos">
-                            <group>
-                                <group>
-                                    <field name="output_path"/>
-                                    <field name="output_storage_type"/>
-                                </group>
-                                <group>
-                                    <field name="csv_encoding"/>
-                                    <field name="csv_separator"/>
-                                    <field name="csv_enclosure"/>
-                                </group>
-                            </group>
-                        </page>
-                        
                         <page string="Códigos Fijos">
                             <group>
-                                <group string="Códigos Generales">
+                                <group>
                                     <field name="codigo_sucursal"/>
                                     <field name="codigo_fuerza"/>
                                     <field name="codigo_modo_atencion"/>
                                     <field name="codigo_deposito"/>
                                 </group>
-                                <group string="Códigos por Defecto">
-                                    <field name="codigo_ruta_default"/>
-                                    <field name="desc_ruta_default"/>
-                                    <field name="localidad_default"/>
-                                </group>
-                            </group>
-                            <group>
-                                <group string="Provincia por Defecto">
-                                    <field name="provincia_codigo_default"/>
-                                    <field name="provincia_nombre_default"/>
-                                </group>
-                                <group string="Fechas Extremas">
-                                    <field name="fecha_desde_default"/>
-                                    <field name="fecha_hasta_default"/>
-                                </group>
-                            </group>
-                        </page>
-                        
-                        <page string="Filtros">
-                            <group>
-                                <field name="days_back"/>
                             </group>
                         </page>
                         
                         <page string="Personal Comercial">
-                            <field name="personal_comercial_ids" nolabel="1"/>
+                            <field name="personal_comercial_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="codigo_personal"/>
+                                    <field name="descripcion"/>
+                                    <field name="cargo"/>
+                                    <field name="anulado"/>
+                                    <field name="codigo_fuerza"/>
+                                </list>
+                            </field>
                         </page>
                         
                         <page string="Rutas de Venta">
-                            <field name="ruta_venta_ids" nolabel="1"/>
+                            <field name="ruta_venta_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="codigo_ruta"/>
+                                    <field name="fecha_desde"/>
+                                </list>
+                            </field>
                         </page>
                     </notebook>
                 </sheet>

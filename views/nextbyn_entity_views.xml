@@ -254,10 +254,9 @@
     <!-- MENÚS -->
     <!-- ============================================================ -->
     
-    <menuitem id="menu_nextbyn_config_csv"
-              name="Configuración CSVs"
-              parent="menu_softys_config"
-              action="nextbyn_export_entity_action"
-              sequence="5"/>
+    <!-- Menú de Configuración CSVs eliminado: el motor principal no utiliza
+         entidades dinámicas, por lo que este menú no es necesario para la
+         operación estándar. -->
+    <delete model="ir.ui.menu" search="[('id', '=', ref('menu_nextbyn_config_csv'))]"/>
 
 </odoo>

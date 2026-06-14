@@ -112,7 +112,7 @@ class NextbynExportEngine(models.AbstractModel):
                 ('invoice_line_ids.product_id', 'in', product_ids),
             ])
             if invoices:
-                results.append(self.generate_comprobantes(connector, invoices))
+                results.append(self.generate_comprobantes(connector, invoices, product_ids))
         
         return results
     
@@ -263,27 +263,17 @@ class NextbynExportEngine(models.AbstractModel):
     def generate_articulos(self, connector, products):
         """
         Genera Articulos CSV según documentación Nextbyn.
-        
-        Campos obligatorios:
+        Solo campos obligatorios:
         - CodigoArticulo (Numérico)
         - DescripcionArticulo (Texto 50)
-        - Anulado (Bool)
+        - Anulado (Bool SI/NO)
         - UnidadesXBulto (Numérico)
-        
-        Campos opcionales importantes:
-        - ValorUMedida, UnidadMedida, CodigoEANBulto, CodigoEANUnidad, etc.
         """
         headers = [
             'CodigoArticulo',
             'DescripcionArticulo',
             'Anulado',
             'UnidadesXBulto',
-            'ValorUMedida',
-            'UnidadMedida',
-            'CodigoEANBulto',
-            'CodigoEANUnidad',
-            'Retornable',
-            'ActivoFijo',
         ]
         
         rows = []
@@ -293,12 +283,6 @@ class NextbynExportEngine(models.AbstractModel):
                 self._clean_text(product.name, 50),  # DescripcionArticulo
                 self._format_bool(not product.active, 'SINO_upper'),  # Anulado (NO/SI)
                 self._format_integer(product.x_softys_unidades_bulto or 1),  # UnidadesXBulto
-                self._format_decimal(product.x_softys_valor_umedida or 0, 4),  # ValorUMedida
-                self._clean_text(product.uom_id.name if product.uom_id else 'UN', 50),  # UnidadMedida
-                self._clean_text(product.barcode or '', 50),  # CodigoEANBulto
-                self._clean_text(product.x_softys_ean_unidad or '', 50),  # CodigoEANUnidad
-                self._format_bool(product.x_softys_retornable or False, '01'),  # Retornable
-                self._format_bool(product.x_softys_activo_fijo or False, '01'),  # ActivoFijo
             ]
             rows.append(row)
         
@@ -310,6 +294,12 @@ class NextbynExportEngine(models.AbstractModel):
     def generate_clientes(self, connector, partners):
         """
         Genera Clientes CSV según documentación Nextbyn.
+        Solo campos obligatorios:
+        - CodigoSucursal, CodigoCliente, Nombre, Domicilio
+        - FechaAlta, Anulado, TipoContribuyente
+        - CodListaPrecio (obligatorio según doc, pero enviar vacío según mail)
+        - IdTipoDocumentoCliente
+        - CodigoLocalidad (obligatorio según mail de Softys)
         
         Campos clave únicos: CodigoSucursal, CodigoCliente
         """
@@ -318,51 +308,27 @@ class NextbynExportEngine(models.AbstractModel):
             'CodigoCliente',
             'Nombre',
             'Domicilio',
-            'NumeroCuit',
-            'IdCanalAgrupa',
-            'DescCanalAgrupa',
-            'IdSubCanalAgrupa',
-            'DescSubCanalAgrupa',
             'FechaAlta',
             'Anulado',
-            'LongitudCoord',
-            'LatitudCoord',
             'TipoContribuyente',
             'CodListaPrecio',
             'IdTipoDocumentoCliente',
             'CodigoLocalidad',
-            'DescripcionLocalidad',
-            'CodigoProvincia',
-            'DescProvincia',
         ]
         
         rows = []
         for partner in partners:
-            # Obtener canal/subcanal
-            canal_id = partner.x_softys_canal_id
-            subcanal_id = partner.x_softys_subcanal_id
-            
             row = [
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
                 self._clean_text(partner.id, 50),  # CodigoCliente
                 self._clean_text(partner.name, 100),  # Nombre
                 self._clean_text(self._get_full_address(partner), 100),  # Domicilio
-                self._clean_text(partner.vat or '', 50),  # NumeroCuit
-                self._format_integer(canal_id.id if canal_id else 0),  # IdCanalAgrupa
-                self._clean_text(canal_id.nombre if canal_id else '', 100),  # DescCanalAgrupa
-                self._format_integer(subcanal_id.id if subcanal_id else 0),  # IdSubCanalAgrupa
-                self._clean_text(subcanal_id.nombre if subcanal_id else '', 100),  # DescSubCanalAgrupa
                 self._format_date(partner.create_date, 'ddmmyyyy'),  # FechaAlta
                 self._format_bool(not partner.active, 'sino_lower'),  # Anulado (no/si)
-                self._format_decimal(partner.partner_longitude or 0, 10),  # LongitudCoord
-                self._format_decimal(partner.partner_latitude or 0, 10),  # LatitudCoord
                 self._get_tipo_contribuyente(partner),  # TipoContribuyente
-                self._format_integer(partner.property_product_pricelist.id if partner.property_product_pricelist else 1),  # CodListaPrecio
+                '',  # CodListaPrecio - siempre vacío según mail
                 self._get_tipo_documento(partner),  # IdTipoDocumentoCliente
                 self._clean_text(partner.zip or '', 20),  # CodigoLocalidad
-                self._clean_text(partner.city or '', 100),  # DescripcionLocalidad
-                self._clean_text(partner.state_id.code if partner.state_id else '', 50),  # CodigoProvincia
-                self._clean_text(partner.state_id.name if partner.state_id else '', 50),  # DescProvincia
             ]
             rows.append(row)
         
@@ -374,6 +340,8 @@ class NextbynExportEngine(models.AbstractModel):
     def generate_personal_comercial(self, connector):
         """
         Genera PersonalComercial CSV según documentación Nextbyn.
+        Solo campos obligatorios:
+        - CodigoSucursal, CodigoPersonal, Descripcion, Cargo, Anulado, CodigoFuerza
         
         Campos clave únicos: CodigoPersonal
         Cargos: V=Vendedor, S=Supervisor, G=Gerente, F=Fletero/Repartidor
@@ -384,7 +352,6 @@ class NextbynExportEngine(models.AbstractModel):
             'Descripcion',
             'Cargo',
             'Anulado',
-            'CodigoPersonalSuperior',
             'CodigoFuerza',
         ]
         
@@ -396,7 +363,6 @@ class NextbynExportEngine(models.AbstractModel):
                 self._clean_text(personal.descripcion, 50),  # Descripcion
                 personal.cargo or 'V',  # Cargo (V/S/G/F)
                 self._format_bool(personal.anulado == '1', '01'),  # Anulado (0/1)
-                self._format_integer(personal.codigo_personal_superior or 0),  # CodigoPersonalSuperior
                 self._format_integer(personal.codigo_fuerza or connector.codigo_fuerza or 1),  # CodigoFuerza
             ]
             rows.append(row)
@@ -409,6 +375,8 @@ class NextbynExportEngine(models.AbstractModel):
     def generate_rutas_de_venta(self, connector):
         """
         Genera RutasDeVenta CSV según documentación Nextbyn.
+        Solo campos obligatorios:
+        - CodigoSucursal, CodigoFuerza, CodigoModoAtencion, CodigoRuta, FechaDesde
         
         Campos clave únicos: CodigoSucursal, CodigoFuerza, CodigoModoAtencion, 
                             CodigoRuta, FechaDesde
@@ -418,18 +386,7 @@ class NextbynExportEngine(models.AbstractModel):
             'CodigoFuerza',
             'CodigoModoAtencion',
             'CodigoRuta',
-            'DescripcionRuta',
-            'CodigoPersonal',
             'FechaDesde',
-            'Periodicidad',
-            'Semana',
-            'AtiendeLunes',
-            'AtiendeMartes',
-            'AtiendeMiercoles',
-            'AtiendeJueves',
-            'AtiendeViernes',
-            'AtiendeSabado',
-            'AtiendeDomingo',
         ]
         
         rows = []
@@ -439,18 +396,7 @@ class NextbynExportEngine(models.AbstractModel):
                 self._format_integer(connector.codigo_fuerza or 1),  # CodigoFuerza
                 self._clean_text(connector.codigo_modo_atencion or 'PRE', 5),  # CodigoModoAtencion
                 self._format_integer(ruta.codigo_ruta),  # CodigoRuta
-                self._clean_text(ruta.descripcion_ruta, 50),  # DescripcionRuta
-                self._format_integer(ruta.codigo_personal),  # CodigoPersonal
                 ruta.fecha_desde or '2001/01/01',  # FechaDesde (constante si no hay historia)
-                self._format_integer(ruta.periodicidad or 1),  # Periodicidad
-                self._format_integer(ruta.semana or 1),  # Semana
-                self._format_bool(ruta.atiende_lunes, '01'),  # AtiendeLunes
-                self._format_bool(ruta.atiende_martes, '01'),  # AtiendeMartes
-                self._format_bool(ruta.atiende_miercoles, '01'),  # AtiendeMiercoles
-                self._format_bool(ruta.atiende_jueves, '01'),  # AtiendeJueves
-                self._format_bool(ruta.atiende_viernes, '01'),  # AtiendeViernes
-                self._format_bool(ruta.atiende_sabado, '01'),  # AtiendeSabado
-                self._format_bool(ruta.atiende_domingo, '01'),  # AtiendeDomingo
             ]
             rows.append(row)
         
@@ -557,9 +503,13 @@ class NextbynExportEngine(models.AbstractModel):
         
         return filename, content, len(rows)
     
-    def generate_comprobantes(self, connector, invoices):
+    def generate_comprobantes(self, connector, invoices, product_ids=None):
         """
         Genera Comprobantes CSV según documentación Nextbyn.
+        Solo campos obligatorios.
+        EsVenta siempre YES según requerimiento de Softys.
+        Opcionalmente filtra líneas por product_ids (para exportar solo líneas
+        de productos del proveedor Softys).
         
         Campos clave únicos: CodigoEmpresaFactura, TipoComprobante, LetraComprobante,
                             SerieComprobante, NumeroComprobante, NumeroLinea
@@ -571,10 +521,7 @@ class NextbynExportEngine(models.AbstractModel):
             'SerieComprobante',
             'NumeroComprobante',
             'NumeroLinea',
-            'CodigoTalonario',
-            'CodigoFuerza',
             'EsVenta',
-            'EsEntrega',
             'CodigoArticulo',
             'DescripcionArticulo',
             'UnidadesPorBulto',
@@ -582,28 +529,26 @@ class NextbynExportEngine(models.AbstractModel):
             'PrecioUnitarioBruto',
             'Bonificacion',
             'FechaPedido',
-            'CodigoPersonal',
             'FechaComprobante',
-            'HoraFactura',
             'CodigoCliente',
             'CodigoSucursal',
-            'NombreCliente',
             'TipoContribuyente',
-            'Anulado',
         ]
         
         rows = []
+        product_ids_set = set(product_ids or [])
         
         for invoice in invoices:
             # Parsear número de factura argentina
             tipo, letra, serie, numero = self._parse_invoice_number(invoice)
             
             line_num = 0
-            for line in invoice.invoice_line_ids.filtered(lambda l: l.product_id):
+            lines = invoice.invoice_line_ids.filtered(lambda l: l.product_id)
+            if product_ids_set:
+                lines = lines.filtered(lambda l: l.product_id.id in product_ids_set)
+            
+            for line in lines:
                 line_num += 1
-                
-                # Determinar si es venta (facturas) o no (NC)
-                es_venta = invoice.move_type in ('out_invoice', 'out_refund')
                 
                 # Cantidad: positiva para facturas, negativa para NC
                 cantidad = line.quantity
@@ -617,10 +562,7 @@ class NextbynExportEngine(models.AbstractModel):
                     self._format_integer(serie),  # SerieComprobante
                     self._format_integer(numero),  # NumeroComprobante
                     self._format_integer(line_num),  # NumeroLinea
-                    self._format_integer(0),  # CodigoTalonario
-                    self._format_integer(connector.codigo_fuerza or 1),  # CodigoFuerza
-                    self._format_bool(es_venta, 'YESNO_upper'),  # EsVenta (YES/NO)
-                    self._format_bool(es_venta, 'YESNO_upper'),  # EsEntrega (YES/NO)
+                    self._format_bool(True, 'YESNO_upper'),  # EsVenta - siempre YES
                     self._format_integer(line.product_id.id),  # CodigoArticulo
                     self._clean_text(line.product_id.name, 50),  # DescripcionArticulo
                     self._format_integer(line.product_id.x_softys_unidades_bulto or 1),  # UnidadesPorBulto
@@ -628,14 +570,10 @@ class NextbynExportEngine(models.AbstractModel):
                     self._format_decimal(line.price_unit, 6),  # PrecioUnitarioBruto
                     self._format_decimal(line.discount or 0, 3),  # Bonificacion
                     self._format_date(invoice.invoice_date, 'ddmmyyyy'),  # FechaPedido
-                    self._format_integer(self._get_vendedor_code(invoice, connector)),  # CodigoPersonal
                     self._format_date(invoice.invoice_date, 'ddmmyyyy'),  # FechaComprobante
-                    self._format_time(invoice.create_date),  # HoraFactura
                     self._clean_text(invoice.partner_id.id, 50),  # CodigoCliente
                     self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
-                    self._clean_text(invoice.partner_id.name, 100),  # NombreCliente
                     self._get_tipo_contribuyente(invoice.partner_id),  # TipoContribuyente
-                    self._format_bool(invoice.state == 'cancel', 'SINO_upper'),  # Anulado (NO/SI)
                 ]
                 rows.append(row)
         
