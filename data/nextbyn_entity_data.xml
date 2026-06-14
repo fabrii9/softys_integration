@@ -240,11 +240,12 @@ Campos clave: CodigoSucursal + CodigoCliente</field>
             <field name="sequence">10</field>
             <field name="nextbyn_name">CodigoDeposito</field>
             <field name="source_type">related</field>
-            <field name="related_field_path">location_id.warehouse_id.x_softys_codigo_deposito</field>
-            <field name="data_type">integer</field>
+            <field name="related_field_path">location_id.warehouse_id.code</field>
+            <field name="data_type">string</field>
+            <field name="max_length">10</field>
             <field name="default_value">1</field>
             <field name="required">True</field>
-            <field name="notes">Numérico - Código del depósito</field>
+            <field name="notes">Código del depósito (nombre corto del almacén)</field>
         </record>
         
         <record id="field_stock_articulo" model="nextbyn.export.field">

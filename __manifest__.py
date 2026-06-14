@@ -62,6 +62,9 @@
         # Vistas - Menús (primero para que las acciones puedan referenciarlos)
         'views/menu.xml',
         
+        # Vistas - Productos y Almacenes
+        'views/product_views.xml',
+        
         # Vistas - Configuración
         'views/softys_connector_views.xml',
         'views/softys_export_views.xml',

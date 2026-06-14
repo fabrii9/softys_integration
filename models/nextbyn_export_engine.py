@@ -481,9 +481,9 @@ class NextbynExportEngine(models.AbstractModel):
         today = fields.Date.today()
         
         for quant in stock_quants:
-            # Obtener código de depósito
+            # Obtener código de depósito (nombre corto del almacén)
             warehouse = quant.location_id.warehouse_id
-            deposito_code = warehouse.x_softys_codigo_deposito if warehouse else connector.codigo_deposito or '1'
+            deposito_code = warehouse.code if warehouse else connector.codigo_deposito or '1'
             
             # Fecha de vencimiento del lote (si existe)
             lot = quant.lot_id
