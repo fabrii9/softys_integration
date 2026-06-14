@@ -52,22 +52,31 @@ class NextbynExportEngine(models.AbstractModel):
         """
         Ejecuta exportación completa de todas las entidades.
         Retorna lista de (filename, content, row_count).
+        
+        Lógica de negocio:
+        - Productos: todos los productos cuyo proveedor sea el partner Softys
+          configurado en el conector (softys_partner_id).
+        - Clientes: todos los clientes que tengan al menos una factura de venta
+          posted con líneas de esos productos.
         """
         results = []
         
-        # Artículos
-        products = self.env['product.product'].search([
-            ('x_softys_producto', '=', True),
-            ('active', 'in', [True, False]),
-        ])
+        # Validar que esté configurado el proveedor Softys
+        if not connector.softys_partner_id:
+            raise UserError(_(
+                'No se configuró el Proveedor Softys en el conector. '
+                'Configúrelo para determinar qué productos y clientes exportar.'
+            ))
+        
+        # Artículos: productos cuyo proveedor es Softys
+        product_ids = self._get_softys_product_ids(connector)
+        products = self.env['product.product'].browse(product_ids)
         if products:
             results.append(self.generate_articulos(connector, products))
         
-        # Clientes
-        partners = self.env['res.partner'].search([
-            ('x_softys_exportar', '=', True),
-            ('customer_rank', '>', 0),
-        ])
+        # Clientes: clientes con ventas de productos Softys
+        customer_ids = self._get_softys_customer_ids(product_ids)
+        partners = self.env['res.partner'].browse(customer_ids)
         if partners:
             results.append(self.generate_clientes(connector, partners))
         
@@ -79,29 +88,28 @@ class NextbynExportEngine(models.AbstractModel):
         if connector.ruta_venta_ids:
             results.append(self.generate_rutas_de_venta(connector))
         
-        # Clientes Ruta
-        partners_ruta = self.env['res.partner'].search([
-            ('x_softys_exportar', '=', True),
-            ('customer_rank', '>', 0),
-        ])
+        # Clientes Ruta: mismos clientes, pero solo los que tengan código de ruta
+        partners_ruta = partners.filtered(lambda p: p.x_softys_codigo_ruta)
         if partners_ruta:
             results.append(self.generate_clientes_ruta(connector, partners_ruta))
         
-        # Stock Físico
+        # Stock Físico: solo quants de productos Softys
         quants = self.env['stock.quant'].search([
             ('quantity', '>', 0),
             ('location_id.usage', '=', 'internal'),
+            ('product_id', 'in', product_ids),
         ])
         if quants:
             results.append(self.generate_stock_fisico(connector, quants))
         
-        # Comprobantes
+        # Comprobantes: facturas de venta con productos Softys
         if date_from and date_to:
             invoices = self.env['account.move'].search([
                 ('move_type', 'in', ['out_invoice', 'out_refund']),
                 ('state', '=', 'posted'),
                 ('invoice_date', '>=', date_from),
                 ('invoice_date', '<=', date_to),
+                ('invoice_line_ids.product_id', 'in', product_ids),
             ])
             if invoices:
                 results.append(self.generate_comprobantes(connector, invoices))
@@ -111,6 +119,50 @@ class NextbynExportEngine(models.AbstractModel):
     # =========================================================================
     # UTILIDADES
     # =========================================================================
+    
+    def _get_softys_product_ids(self, connector):
+        """
+        Devuelve los IDs de product.product cuyo proveedor (seller_ids)
+        coincide con el partner Softys configurado en el conector.
+        """
+        if not connector.softys_partner_id:
+            return []
+        
+        supplier_infos = self.env['product.supplierinfo'].search([
+            ('partner_id', '=', connector.softys_partner_id.id),
+        ])
+        template_ids = supplier_infos.mapped('product_tmpl_id').ids
+        
+        if not template_ids:
+            return []
+        
+        products = self.env['product.product'].search([
+            ('product_tmpl_id', 'in', template_ids),
+            ('active', 'in', [True, False]),
+        ])
+        return products.ids
+    
+    def _get_softys_customer_ids(self, product_ids, date_from=None, date_to=None):
+        """
+        Devuelve los IDs de res.partner que tienen al menos una factura
+        de venta (out_invoice/out_refund) en estado posted con líneas
+        de los productos indicados.
+        """
+        if not product_ids:
+            return []
+        
+        domain = [
+            ('move_type', 'in', ['out_invoice', 'out_refund']),
+            ('state', '=', 'posted'),
+            ('invoice_line_ids.product_id', 'in', product_ids),
+        ]
+        if date_from:
+            domain.append(('invoice_date', '>=', date_from))
+        if date_to:
+            domain.append(('invoice_date', '<=', date_to))
+        
+        invoices = self.env['account.move'].search(domain)
+        return invoices.mapped('partner_id').ids
     
     def _get_timestamp(self):
         """Genera timestamp para nombre de archivo: AAAAMMDDHHMMSS"""
