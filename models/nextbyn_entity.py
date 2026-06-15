@@ -142,7 +142,7 @@ class NextbynExportEntity(models.Model):
             'name': _('Campos de %s') % self.name,
             'type': 'ir.actions.act_window',
             'res_model': 'nextbyn.export.field',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('entity_id', '=', self.id)],
             'context': {'default_entity_id': self.id},
         }

@@ -490,7 +490,7 @@ class NextbynExportEngine(models.AbstractModel):
             vencimiento = lot.expiration_date if lot and lot.expiration_date else today
             
             row = [
-                self._format_integer(deposito_code),  # CodigoDeposito
+                self._clean_text(deposito_code),  # CodigoDeposito
                 self._format_integer(quant.product_id.id),  # CodigoArticulo
                 self._format_date(vencimiento, 'yyyymmdd'),  # VencimientoLote
                 self._format_decimal(quant.quantity, 6),  # CantidadDecimal

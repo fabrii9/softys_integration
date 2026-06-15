@@ -235,7 +235,7 @@ class SoftysConnector(models.Model):
             'name': _('Exportaciones Softys'),
             'type': 'ir.actions.act_window',
             'res_model': 'softys.export.run',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('connector_id', '=', self.id)],
             'context': {'default_connector_id': self.id}
         }
