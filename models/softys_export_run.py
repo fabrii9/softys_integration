@@ -401,8 +401,7 @@ class SoftysExportFile(models.Model):
     ], string='Tipo', required=True)
     
     datas = fields.Binary(
-        string='Archivo',
-        attachment=True
+        string='Archivo'
     )
     
     row_count = fields.Integer(
@@ -418,10 +417,15 @@ class SoftysExportFile(models.Model):
     @api.depends('datas')
     def _compute_file_size(self):
         for record in self:
-            if record.datas:
-                record.file_size = len(base64.b64decode(record.datas))
-            else:
+            if not record.datas:
                 record.file_size = 0
+                continue
+            try:
+                record.file_size = len(base64.b64decode(record.datas))
+            except Exception:
+                # Si no es base64 válido (p. ej. referencia de attachment),
+                # usamos el tamaño del valor crudo como aproximación.
+                record.file_size = len(record.datas) if isinstance(record.datas, (str, bytes)) else 0
 
 
 class SoftysExportLog(models.Model):
