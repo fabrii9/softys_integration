@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Integración Nextbyn',
-    'version': '18.0.2.0.0',
+    'version': '18.0.2.0.1',
     'category': 'Integration',
     'summary': 'Integración con portal Nextbyn - Generación de CSVs según documentación oficial',
     'description': """
