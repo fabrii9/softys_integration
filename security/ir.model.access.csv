@@ -17,6 +17,8 @@ access_softys_canal_user,softys.canal.user,model_softys_canal,base.group_user,1,
 access_softys_canal_manager,softys.canal.manager,model_softys_canal,base.group_system,1,1,1,1
 access_softys_subcanal_user,softys.subcanal.user,model_softys_subcanal,base.group_user,1,0,0,0
 access_softys_subcanal_manager,softys.subcanal.manager,model_softys_subcanal,base.group_system,1,1,1,1
+access_softys_localidad_user,softys.localidad.user,model_softys_localidad,base.group_user,1,0,0,0
+access_softys_localidad_manager,softys.localidad.manager,model_softys_localidad,base.group_system,1,1,1,1
 access_softys_personal_comercial_user,softys.personal.comercial.user,model_softys_personal_comercial,base.group_user,1,0,0,0
 access_softys_personal_comercial_manager,softys.personal.comercial.manager,model_softys_personal_comercial,base.group_system,1,1,1,1
 access_softys_ruta_venta_user,softys.ruta.venta.user,model_softys_ruta_venta,base.group_user,1,0,0,0

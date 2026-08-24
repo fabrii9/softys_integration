@@ -1,28 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
-        <!-- Canales de venta Nextbyn -->
+    <!--
+        Canales según planilla "CANALES SOFTYS.xlsx" (Compañía SOFTYS, 18/06/2025).
+        Instructivo V2.4.2 - archivo Clientes: IdCanalAgrupa / DescCanalAgrupa.
+        noupdate="0" para que actualice los registros al actualizar el módulo.
+        Nota: la planilla no trae subcanales; si el cliente no tiene subcanal
+        asignado, el motor exporta el canal como subcanal.
+    -->
+    <data noupdate="0">
         <record id="canal_tradicional" model="softys.canal">
-            <field name="nombre">Tradicional</field>
             <field name="codigo">01</field>
+            <field name="nombre">Distribuidores</field>
             <field name="active">True</field>
         </record>
-        
         <record id="canal_moderno" model="softys.canal">
-            <field name="nombre">Moderno</field>
             <field name="codigo">02</field>
+            <field name="nombre">Educación</field>
             <field name="active">True</field>
         </record>
-        
         <record id="canal_mayorista" model="softys.canal">
-            <field name="nombre">Mayorista</field>
             <field name="codigo">03</field>
+            <field name="nombre">Estado</field>
             <field name="active">True</field>
         </record>
-        
         <record id="canal_institucional" model="softys.canal">
-            <field name="nombre">Institucional</field>
             <field name="codigo">04</field>
+            <field name="nombre">Restaurante</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_05" model="softys.canal">
+            <field name="codigo">05</field>
+            <field name="nombre">Hospital y Clínica</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_06" model="softys.canal">
+            <field name="codigo">06</field>
+            <field name="nombre">Hoteles</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_07" model="softys.canal">
+            <field name="codigo">07</field>
+            <field name="nombre">Otras industrias</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_08" model="softys.canal">
+            <field name="codigo">08</field>
+            <field name="nombre">Mayoristas</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_09" model="softys.canal">
+            <field name="codigo">09</field>
+            <field name="nombre">Oficinas e Instituciones</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_10" model="softys.canal">
+            <field name="codigo">10</field>
+            <field name="nombre">Papeleras</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_11" model="softys.canal">
+            <field name="codigo">11</field>
+            <field name="nombre">Otros</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_12" model="softys.canal">
+            <field name="codigo">12</field>
+            <field name="nombre">Entretenimiento</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_13" model="softys.canal">
+            <field name="codigo">13</field>
+            <field name="nombre">Consumidor Final</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_14" model="softys.canal">
+            <field name="codigo">14</field>
+            <field name="nombre">Fast Food Cadena</field>
+            <field name="active">True</field>
+        </record>
+        <record id="canal_softys_15" model="softys.canal">
+            <field name="codigo">15</field>
+            <field name="nombre">Ind. alimentar/farma</field>
             <field name="active">True</field>
         </record>
     </data>

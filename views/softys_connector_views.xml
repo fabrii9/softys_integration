@@ -41,6 +41,13 @@
                                     <field name="codigo_fuerza"/>
                                     <field name="codigo_modo_atencion"/>
                                     <field name="codigo_deposito"/>
+                                    <field name="codigo_ruta_default"/>
+                                </group>
+                                <group string="Defaults Localidad/Provincia (Anexo Nextbyn)">
+                                    <field name="codigo_localidad_default"/>
+                                    <field name="localidad_default"/>
+                                    <field name="provincia_codigo_default"/>
+                                    <field name="provincia_nombre_default"/>
                                 </group>
                             </group>
                         </page>
@@ -52,6 +59,7 @@
                                     <field name="descripcion"/>
                                     <field name="cargo"/>
                                     <field name="anulado"/>
+                                    <field name="codigo_personal_superior"/>
                                     <field name="codigo_fuerza"/>
                                 </list>
                             </field>
@@ -61,7 +69,16 @@
                             <field name="ruta_venta_ids" nolabel="1">
                                 <list editable="bottom">
                                     <field name="codigo_ruta"/>
+                                    <field name="descripcion_ruta"/>
+                                    <field name="codigo_personal"/>
                                     <field name="fecha_desde"/>
+                                    <field name="atiende_lunes"/>
+                                    <field name="atiende_martes"/>
+                                    <field name="atiende_miercoles"/>
+                                    <field name="atiende_jueves"/>
+                                    <field name="atiende_viernes"/>
+                                    <field name="atiende_sabado"/>
+                                    <field name="atiende_domingo"/>
                                 </list>
                             </field>
                         </page>

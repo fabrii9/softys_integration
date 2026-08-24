@@ -59,9 +59,9 @@ class SoftysConnector(models.Model):
     days_back = fields.Integer(
         string='Días hacia atrás (Comprobantes)',
         required=True,
-        default=98,
-        help='Cantidad de días para filtrar comprobantes. '
-             'SQL: f.fecha >= CURDATE() - INTERVAL 98 DAY'
+        default=15,
+        help='Cantidad de días hacia atrás para comprobantes. '
+             'Instructivo V2.4.2: ventas del día de transmisión + 15 días atrás.'
     )
     
     # Configuración de códigos fijos
@@ -123,20 +123,27 @@ class SoftysConnector(models.Model):
     localidad_default = fields.Char(
         string='Localidad por Defecto',
         default='PUERTO IGUAZU - 3370',
-        help='Localidad cuando zona es null o "Sin Zona"'
+        help='Descripción de localidad cuando el cliente no tiene localidad '
+             'del Anexo Nextbyn asignada'
+    )
+
+    codigo_localidad_default = fields.Char(
+        string='Código Localidad Default',
+        help='IdLocalidad del Anexo "Ciudades argentinas v2" a usar cuando el '
+             'cliente no tiene localidad del anexo asignada (CodigoLocalidad)'
     )
     
-    # Configuración de fechas extremas
+    # Configuración de fechas extremas (formato DD/MM/YYYY según instructivo V2.4.2)
     fecha_desde_default = fields.Char(
         string='Fecha Desde Default',
-        default='1900/01/01',
-        help='Fecha inicio por defecto para rutas'
+        default='01/01/1900',
+        help='Fecha inicio por defecto cuando no se tiene el dato'
     )
     
     fecha_hasta_default = fields.Char(
         string='Fecha Hasta Default',
-        default='9999/12/31',
-        help='Fecha fin por defecto (máxima)'
+        default='31/12/9999',
+        help='Fecha fin por defecto (máxima), formato DD/MM/YYYY'
     )
     
     # Configuración de encoding
@@ -386,8 +393,8 @@ class SoftysRutaVenta(models.Model):
     
     fecha_desde = fields.Char(
         string='Fecha Desde',
-        default='2001/01/01',
-        help='Formato yyyy/MM/dd. Constante 2001/01/01 si no se conserva historia.'
+        default='01/01/1900',
+        help='Formato DD/MM/YYYY. Constante 01/01/1900 si no se tiene el dato.'
     )
     
     # Campos adicionales según documentación Nextbyn

@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Motor de exportación Nextbyn - Cumple rigurosamente con la documentación oficial.
-Documentación: Manual de implementación de interfases de integración a Nextbyn
+Motor de exportación Nextbyn - Cumple con el instructivo oficial.
+Documentación: "CSV - Instructivo de implementacion CSV V2.4.2"
+(Manual de implementación de interfaces de integración a Nextbyn CSV)
+
+Formato nombre archivo: {Entidad}00EEEEAAAAMMDDHHMMSS.csv
+- EEEE = ID empresa provisto por Nextbyn (se completa con ceros a 6: "00"+EEEE)
+- AAAAMMDDHHMMSS = Timestamp de generación
+- Separador = ;
+- Primera fila = Headers (respetar mayúsculas/minúsculas)
+- Extensión .csv siempre en minúscula
 """
 
 from odoo import models, fields, api, _
@@ -9,50 +17,48 @@ from odoo.exceptions import UserError
 import logging
 import csv
 import io
-import os
-from datetime import datetime, timedelta
-import base64
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
 
 class NextbynExportEngine(models.AbstractModel):
     """
-    Motor de exportación que implementa la generación de CSVs según
-    especificación oficial Nextbyn.
-    
-    Formato nombre archivo: {Entidad}EEEEEEAAAAMMDDHHMMSS.csv
-    - EEEEEE = ID empresa (6 dígitos)
-    - AAAAMMDDHHMMSS = Timestamp
-    - Separador = ;
-    - Primera fila = Headers
+    Motor de exportación que implementa la generación de los 7 CSVs
+    según el instructivo oficial Nextbyn V2.4.2.
+
+    Archivos: Articulos, Clientes, PersonalComercial, RutasDeVenta,
+    ClientesRuta, StockFisico, Comprobantes.
     """
     _name = 'nextbyn.export.engine'
     _description = 'Motor Exportación Nextbyn'
-    
+
     # =========================================================================
-    # CONSTANTES Y CONFIGURACIÓN
+    # CONSTANTES SEGÚN INSTRUCTIVO V2.4.2
     # =========================================================================
-    
+
     SEPARATOR = ';'
     ENCODING = 'utf-8'
-    
-    # Formatos de fecha según documentación
-    DATE_FORMAT_YYYYMMDD = '%Y/%m/%d'  # yyyy/MM/dd
-    DATE_FORMAT_DDMMYYYY = '%d/%m/%Y'  # dd/MM/yyyy
-    DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S'
+
+    # El instructivo usa DD/MM/YYYY en TODAS las fechas de los CSVs
+    DATE_FORMAT_CSV = '%d/%m/%Y'
     TIME_FORMAT = '%H:%M:%S'
-    
+
+    # Constantes de fechas según instructivo
+    FECHA_DESDE_DEFAULT = '01/01/1900'
+    FECHA_HASTA_DEFAULT = '31/12/9999'
+    VENCIMIENTO_LOTE_DEFAULT = '31/12/9999'
+
     # =========================================================================
     # API PRINCIPAL
     # =========================================================================
-    
+
     @api.model
     def export_all(self, connector, date_from=None, date_to=None):
         """
-        Ejecuta exportación completa de todas las entidades.
+        Ejecuta exportación completa de las 7 entidades.
         Retorna lista de (filename, content, row_count).
-        
+
         Lógica de negocio:
         - Productos: todos los productos cuyo proveedor sea el partner Softys
           configurado en el conector (softys_partner_id).
@@ -60,48 +66,46 @@ class NextbynExportEngine(models.AbstractModel):
           posted con líneas de esos productos.
         """
         results = []
-        
+
         # Validar que esté configurado el proveedor Softys
         if not connector.softys_partner_id:
             raise UserError(_(
                 'No se configuró el Proveedor Softys en el conector. '
                 'Configúrelo para determinar qué productos y clientes exportar.'
             ))
-        
+
         # Artículos: productos cuyo proveedor es Softys
         product_ids = self._get_softys_product_ids(connector)
         products = self.env['product.product'].browse(product_ids)
         if products:
             results.append(self.generate_articulos(connector, products))
-        
+
         # Clientes: clientes con ventas de productos Softys
         customer_ids = self._get_softys_customer_ids(product_ids)
         partners = self.env['res.partner'].browse(customer_ids)
         if partners:
             results.append(self.generate_clientes(connector, partners))
-        
+
         # Personal Comercial
         if connector.personal_comercial_ids:
             results.append(self.generate_personal_comercial(connector))
-        
+
         # Rutas de Venta
         if connector.ruta_venta_ids:
             results.append(self.generate_rutas_de_venta(connector))
-        
-        # Clientes Ruta: mismos clientes, pero solo los que tengan código de ruta
-        partners_ruta = partners.filtered(lambda p: p.x_softys_codigo_ruta)
-        if partners_ruta:
-            results.append(self.generate_clientes_ruta(connector, partners_ruta))
-        
-        # Stock Físico: solo quants de productos Softys
-        quants = self.env['stock.quant'].search([
-            ('quantity', '>', 0),
-            ('location_id.usage', '=', 'internal'),
-            ('product_id', 'in', product_ids),
-        ])
-        if quants:
-            results.append(self.generate_stock_fisico(connector, quants))
-        
+
+        # Clientes Ruta: TODOS los clientes del archivo Clientes deben estar
+        # (instructivo: "todos los clientes que estén en el archivo Clientes
+        # deben estar en este archivo"). Sin ruta -> ruta por defecto.
+        if partners:
+            results.append(self.generate_clientes_ruta(connector, partners))
+
+        # Stock Físico: todos los artículos del maestro por depósito,
+        # incluso sin stock (instructivo: N artículos por cada depósito).
+        products_activos = products.filtered('active')
+        if products_activos:
+            results.append(self.generate_stock_fisico(connector, products_activos))
+
         # Comprobantes: facturas de venta con productos Softys
         if date_from and date_to:
             invoices = self.env['account.move'].search([
@@ -113,13 +117,13 @@ class NextbynExportEngine(models.AbstractModel):
             ])
             if invoices:
                 results.append(self.generate_comprobantes(connector, invoices, product_ids))
-        
+
         return results
-    
+
     # =========================================================================
-    # UTILIDADES
+    # UTILIDADES DE DATOS
     # =========================================================================
-    
+
     def _get_softys_product_ids(self, connector):
         """
         Devuelve los IDs de product.product cuyo proveedor (seller_ids)
@@ -127,21 +131,21 @@ class NextbynExportEngine(models.AbstractModel):
         """
         if not connector.softys_partner_id:
             return []
-        
+
         supplier_infos = self.env['product.supplierinfo'].search([
             ('partner_id', '=', connector.softys_partner_id.id),
         ])
         template_ids = supplier_infos.mapped('product_tmpl_id').ids
-        
+
         if not template_ids:
             return []
-        
+
         products = self.env['product.product'].search([
             ('product_tmpl_id', 'in', template_ids),
             ('active', 'in', [True, False]),
         ])
         return products.ids
-    
+
     def _get_softys_customer_ids(self, product_ids, date_from=None, date_to=None):
         """
         Devuelve los IDs de res.partner que tienen al menos una factura
@@ -150,7 +154,7 @@ class NextbynExportEngine(models.AbstractModel):
         """
         if not product_ids:
             return []
-        
+
         domain = [
             ('move_type', 'in', ['out_invoice', 'out_refund']),
             ('state', '=', 'posted'),
@@ -160,28 +164,32 @@ class NextbynExportEngine(models.AbstractModel):
             domain.append(('invoice_date', '>=', date_from))
         if date_to:
             domain.append(('invoice_date', '<=', date_to))
-        
+
         invoices = self.env['account.move'].search(domain)
         return invoices.mapped('partner_id').ids
-    
+
+    # =========================================================================
+    # UTILIDADES DE FORMATO
+    # =========================================================================
+
     def _get_timestamp(self):
         """Genera timestamp para nombre de archivo: AAAAMMDDHHMMSS"""
         return datetime.now().strftime('%Y%m%d%H%M%S')
-    
+
     def _get_filename(self, entity_name, company_code):
         """
-        Genera nombre de archivo según especificación.
-        Formato: {Entidad}EEEEEEAAAAMMDDHHMMSS.csv
+        Genera nombre de archivo según instructivo V2.4.2:
+        NombreArchivo + "00" + EEEE + AAAAMMDDHHMMSS + .csv
+        (zfill(6) equivale a "00" + EEEE para códigos de 4 dígitos)
         """
         timestamp = self._get_timestamp()
-        # Asegurar que company_code tenga 6 dígitos
         code = str(company_code).zfill(6)
         return f"{entity_name}{code}{timestamp}.csv"
-    
+
     def _format_bool(self, value, format_type='01'):
         """
         Formatea booleano según tipo requerido.
-        format_type: '01', 'SINO_upper', 'YESNO_upper', 'sino_lower', 'yesno_lower', 'truefalse'
+        format_type: '01', 'SINO_upper', 'YESNO_upper', 'sino_lower', 'yesno_lower'
         """
         if format_type == '01':
             return '1' if value else '0'
@@ -193,36 +201,49 @@ class NextbynExportEngine(models.AbstractModel):
             return 'si' if value else 'no'
         elif format_type == 'yesno_lower':
             return 'yes' if value else 'no'
-        elif format_type == 'truefalse':
-            return 'True' if value else 'False'
         return '1' if value else '0'
-    
-    def _format_date(self, date_value, format_type='yyyymmdd'):
-        """Formatea fecha según tipo requerido."""
+
+    def _format_date(self, date_value):
+        """
+        Formatea fecha según instructivo V2.4.2: DD/MM/YYYY.
+        Acepta date, datetime o string (el string se normaliza a DD/MM/YYYY).
+        """
         if not date_value:
             return ''
-        
+
         if isinstance(date_value, str):
-            return date_value
-        
-        if format_type == 'yyyymmdd':
-            return date_value.strftime(self.DATE_FORMAT_YYYYMMDD)
-        elif format_type == 'ddmmyyyy':
-            return date_value.strftime(self.DATE_FORMAT_DDMMYYYY)
-        return date_value.strftime(self.DATE_FORMAT_YYYYMMDD)
-    
+            value = date_value.strip()
+            for fmt in ('%d/%m/%Y', '%Y/%m/%d', '%Y-%m-%d', '%d-%m-%Y'):
+                try:
+                    return datetime.strptime(value, fmt).strftime(self.DATE_FORMAT_CSV)
+                except ValueError:
+                    continue
+            # Si no matchea ningún formato conocido, se devuelve tal cual
+            return value
+
+        return date_value.strftime(self.DATE_FORMAT_CSV)
+
     def _format_decimal(self, value, decimals=6):
-        """Formatea número decimal."""
+        """
+        Formatea número decimal sin ceros a la derecha innecesarios.
+        Ej: 2.0 -> '2', 0.5702 -> '0.5702', 25000 -> '25000'
+        """
         if value is None:
             return '0'
-        return str(round(float(value), decimals))
-    
+        formatted = f'{float(value):.{decimals}f}'.rstrip('0').rstrip('.')
+        return formatted if formatted else '0'
+
     def _format_integer(self, value):
         """Formatea número entero."""
-        if value is None:
+        if value is None or value == '':
             return '0'
-        return str(int(value))
-    
+        try:
+            return str(int(value))
+        except (ValueError, TypeError):
+            # Si viene texto no numérico (ej: código depósito 'WH'), devolver 0
+            _logger.warning(f'Valor no numérico para campo entero: {value!r}')
+            return '0'
+
     def _clean_text(self, text, max_length=None):
         """Limpia texto para CSV."""
         if not text:
@@ -233,118 +254,176 @@ class NextbynExportEngine(models.AbstractModel):
         if max_length and len(result) > max_length:
             result = result[:max_length]
         return result
-    
+
     def _create_csv_content(self, headers, rows):
         """
         Crea contenido CSV con headers y filas.
-        Según documentación: separador ; y primera fila con nombres de campos.
+        Según instructivo: separador ; y primera fila con nombres de campos.
         """
         output = io.StringIO()
         writer = csv.writer(
             output,
             delimiter=self.SEPARATOR,
             quotechar='"',
-            quoting=csv.QUOTE_MINIMAL
+            quoting=csv.QUOTE_MINIMAL,
+            lineterminator='\n'
         )
-        
-        # Primera fila: headers (según documentación)
+
+        # Primera fila: headers (según instructivo)
         writer.writerow(headers)
-        
+
         # Filas de datos
         for row in rows:
             writer.writerow(row)
-        
+
         return output.getvalue()
-    
+
     # =========================================================================
-    # GENERADORES DE ARCHIVOS - SEGÚN DOCUMENTACIÓN OFICIAL
+    # GENERADORES DE ARCHIVOS - SEGÚN INSTRUCTIVO V2.4.2
     # =========================================================================
-    
+
     def generate_articulos(self, connector, products):
         """
-        Genera Articulos CSV según documentación Nextbyn.
-        Solo campos obligatorios:
-        - CodigoArticulo (Numérico)
-        - DescripcionArticulo (Texto 50)
-        - Anulado (Bool SI/NO)
-        - UnidadesXBulto (Numérico)
+        Genera Articulos CSV según instructivo V2.4.2.
+
+        Columnas (ejemplo oficial):
+        - CodigoArticulo (Número, obligatorio, único)
+        - DescripcionArticulo (Texto 50, obligatorio)
+        - Anulado (Booleano, obligatorio)
+        - UnidadesXBulto (Número, obligatorio)
+        - ValorUMedida (Decimal 8.4, obligatorio) - total litros/kilos del bulto
         """
         headers = [
             'CodigoArticulo',
             'DescripcionArticulo',
             'Anulado',
             'UnidadesXBulto',
+            'ValorUMedida',
         ]
-        
+
         rows = []
         for product in products:
+            if not product.x_softys_valor_umedida:
+                _logger.warning(
+                    f'Producto {product.id} ({product.name}) sin Valor Unidad '
+                    f'de Medida (ValorUMedida) - se exporta en 0'
+                )
             row = [
                 self._format_integer(product.id),  # CodigoArticulo
                 self._clean_text(product.name, 50),  # DescripcionArticulo
                 self._format_bool(not product.active, 'SINO_upper'),  # Anulado (NO/SI)
                 self._format_integer(product.x_softys_unidades_bulto or 1),  # UnidadesXBulto
+                self._format_decimal(product.x_softys_valor_umedida or 0, 4),  # ValorUMedida
             ]
             rows.append(row)
-        
+
         filename = self._get_filename('Articulos', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     def generate_clientes(self, connector, partners):
         """
-        Genera Clientes CSV según documentación Nextbyn.
-        Solo campos obligatorios:
-        - CodigoSucursal, CodigoCliente, Nombre, Domicilio
-        - FechaAlta, Anulado, TipoContribuyente
-        - CodListaPrecio (obligatorio según doc, pero enviar vacío según mail)
-        - IdTipoDocumentoCliente
-        - CodigoLocalidad (obligatorio según mail de Softys)
-        
-        Campos clave únicos: CodigoSucursal, CodigoCliente
+        Genera Clientes CSV según instructivo V2.4.2.
+
+        Campos clave únicos: CodigoSucursal, CodigoCliente.
+
+        Notas:
+        - CodListaPrecio: debe estar pero va vacío (según instructivo/mail).
+        - CodigoLocalidad/DescripcionLocalidad/CodigoProvincia/DescProvincia:
+          según Anexo de Ciudades Argentinas (catálogo softys.localidad).
         """
         headers = [
             'CodigoSucursal',
             'CodigoCliente',
             'Nombre',
             'Domicilio',
+            'NumeroCuit',
+            'IdCanalAgrupa',
+            'DescCanalAgrupa',
+            'IdSubCanalAgrupa',
+            'DescSubCanalAgrupa',
             'FechaAlta',
             'Anulado',
             'TipoContribuyente',
             'CodListaPrecio',
             'IdTipoDocumentoCliente',
             'CodigoLocalidad',
+            'DescripcionLocalidad',
+            'CodigoProvincia',
+            'DescProvincia',
         ]
-        
+
         rows = []
         for partner in partners:
+            # Canal / Subcanal (si no hay subcanal, se repite el canal)
+            canal = partner.x_softys_canal_id
+            subcanal = partner.x_softys_subcanal_id
+            if not canal:
+                _logger.warning(
+                    f'Cliente {partner.id} ({partner.name}) sin canal Nextbyn asignado'
+                )
+            id_canal = self._format_integer(canal.codigo) if canal else ''
+            desc_canal = self._clean_text(canal.nombre, 100) if canal else ''
+            if subcanal:
+                id_subcanal = self._format_integer(subcanal.codigo)
+                desc_subcanal = self._clean_text(subcanal.nombre, 100)
+            else:
+                id_subcanal = id_canal
+                desc_subcanal = desc_canal
+
+            # Localidad / Provincia según Anexo (con fallback a defaults del conector)
+            localidad = partner.x_softys_localidad_anexo_id
+            if localidad:
+                cod_localidad = str(localidad.id_localidad)
+                desc_localidad = self._clean_text(localidad.nombre, 100)
+                cod_provincia = str(localidad.id_provincia)
+                desc_provincia = self._clean_text(localidad.provincia_nombre, 50)
+            else:
+                _logger.warning(
+                    f'Cliente {partner.id} ({partner.name}) sin localidad del '
+                    f'Anexo Nextbyn - se usan defaults del conector'
+                )
+                cod_localidad = self._clean_text(connector.codigo_localidad_default or '', 20)
+                desc_localidad = self._clean_text(
+                    partner.city or connector.localidad_default or '', 100)
+                cod_provincia = self._clean_text(connector.provincia_codigo_default or '', 50)
+                desc_provincia = self._clean_text(
+                    partner.state_id.name or connector.provincia_nombre_default or '', 50)
+
             row = [
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
                 self._clean_text(partner.id, 50),  # CodigoCliente
                 self._clean_text(partner.name, 100),  # Nombre
                 self._clean_text(self._get_full_address(partner), 100),  # Domicilio
-                self._format_date(partner.create_date, 'ddmmyyyy'),  # FechaAlta
-                self._format_bool(not partner.active, 'sino_lower'),  # Anulado (no/si)
+                self._clean_text(partner.x_softys_numero_documento or '', 50),  # NumeroCuit
+                id_canal,  # IdCanalAgrupa
+                desc_canal,  # DescCanalAgrupa
+                id_subcanal,  # IdSubCanalAgrupa
+                desc_subcanal,  # DescSubCanalAgrupa
+                self._format_date(partner.create_date) or self.FECHA_DESDE_DEFAULT,  # FechaAlta
+                self._format_bool(not partner.active, 'SINO_upper'),  # Anulado (NO/SI)
                 self._get_tipo_contribuyente(partner),  # TipoContribuyente
-                '',  # CodListaPrecio - siempre vacío según mail
+                '',  # CodListaPrecio - debe ir vacío según instructivo
                 self._get_tipo_documento(partner),  # IdTipoDocumentoCliente
-                self._clean_text(partner.zip or '', 20),  # CodigoLocalidad
+                cod_localidad,  # CodigoLocalidad
+                desc_localidad,  # DescripcionLocalidad
+                cod_provincia,  # CodigoProvincia
+                desc_provincia,  # DescProvincia
             ]
             rows.append(row)
-        
+
         filename = self._get_filename('Clientes', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     def generate_personal_comercial(self, connector):
         """
-        Genera PersonalComercial CSV según documentación Nextbyn.
-        Solo campos obligatorios:
-        - CodigoSucursal, CodigoPersonal, Descripcion, Cargo, Anulado, CodigoFuerza
-        
-        Campos clave únicos: CodigoPersonal
-        Cargos: V=Vendedor, S=Supervisor, G=Gerente, F=Fletero/Repartidor
+        Genera PersonalComercial CSV según instructivo V2.4.2.
+
+        Campo clave único: CodigoPersonal.
+        Cargos: V=Vendedor, S=Supervisor, G=Gerente
         """
         headers = [
             'CodigoSucursal',
@@ -352,43 +431,57 @@ class NextbynExportEngine(models.AbstractModel):
             'Descripcion',
             'Cargo',
             'Anulado',
+            'CodigoPersonalSuperior',
             'CodigoFuerza',
         ]
-        
+
         rows = []
         for personal in connector.personal_comercial_ids:
             row = [
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
                 self._format_integer(personal.codigo_personal),  # CodigoPersonal
                 self._clean_text(personal.descripcion, 50),  # Descripcion
-                personal.cargo or 'V',  # Cargo (V/S/G/F)
-                self._format_bool(personal.anulado == '1', '01'),  # Anulado (0/1)
+                personal.cargo or 'V',  # Cargo (V/S/G)
+                self._format_bool(personal.anulado == '1', 'SINO_upper'),  # Anulado (NO/SI)
+                # CodigoPersonalSuperior: código del superior o vacío
+                self._format_integer(personal.codigo_personal_superior)
+                    if personal.codigo_personal_superior else '',
                 self._format_integer(personal.codigo_fuerza or connector.codigo_fuerza or 1),  # CodigoFuerza
             ]
             rows.append(row)
-        
+
         filename = self._get_filename('PersonalComercial', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     def generate_rutas_de_venta(self, connector):
         """
-        Genera RutasDeVenta CSV según documentación Nextbyn.
-        Solo campos obligatorios:
-        - CodigoSucursal, CodigoFuerza, CodigoModoAtencion, CodigoRuta, FechaDesde
-        
-        Campos clave únicos: CodigoSucursal, CodigoFuerza, CodigoModoAtencion, 
-                            CodigoRuta, FechaDesde
+        Genera RutasDeVenta CSV según instructivo V2.4.2.
+
+        Campo clave único: CodigoRuta.
+        Una ruta no puede estar asociada a más de 1 vendedor.
+        FechaDesde: DD/MM/YYYY (01/01/1900 si no se tiene el dato).
         """
         headers = [
             'CodigoSucursal',
             'CodigoFuerza',
             'CodigoModoAtencion',
             'CodigoRuta',
+            'DescripcionRuta',
+            'CodigoPersonal',
             'FechaDesde',
+            'Periodicidad',
+            'Semana',
+            'AtiendeLunes',
+            'AtiendeMartes',
+            'AtiendeMiercoles',
+            'AtiendeJueves',
+            'AtiendeViernes',
+            'AtiendeSabado',
+            'AtiendeDomingo',
         ]
-        
+
         rows = []
         for ruta in connector.ruta_venta_ids:
             row = [
@@ -396,78 +489,78 @@ class NextbynExportEngine(models.AbstractModel):
                 self._format_integer(connector.codigo_fuerza or 1),  # CodigoFuerza
                 self._clean_text(connector.codigo_modo_atencion or 'PRE', 5),  # CodigoModoAtencion
                 self._format_integer(ruta.codigo_ruta),  # CodigoRuta
-                ruta.fecha_desde or '2001/01/01',  # FechaDesde (constante si no hay historia)
+                self._clean_text(ruta.descripcion_ruta, 50),  # DescripcionRuta
+                self._format_integer(ruta.codigo_personal),  # CodigoPersonal
+                self._format_date(ruta.fecha_desde) or self.FECHA_DESDE_DEFAULT,  # FechaDesde
+                self._format_integer(ruta.periodicidad or 1),  # Periodicidad
+                self._format_integer(ruta.semana or 1),  # Semana
+                self._format_bool(ruta.atiende_lunes, '01'),  # AtiendeLunes
+                self._format_bool(ruta.atiende_martes, '01'),  # AtiendeMartes
+                self._format_bool(ruta.atiende_miercoles, '01'),  # AtiendeMiercoles
+                self._format_bool(ruta.atiende_jueves, '01'),  # AtiendeJueves
+                self._format_bool(ruta.atiende_viernes, '01'),  # AtiendeViernes
+                self._format_bool(ruta.atiende_sabado, '01'),  # AtiendeSabado
+                self._format_bool(ruta.atiende_domingo, '01'),  # AtiendeDomingo
             ]
             rows.append(row)
-        
+
         filename = self._get_filename('RutasDeVenta', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     def generate_clientes_ruta(self, connector, partners):
         """
-        Genera ClientesRuta CSV según documentación Nextbyn.
-        
-        Campos clave únicos: CodigoSucursal, CodigoFuerza, CodigoModoAtencion,
-                            CodigoRuta, CodigoCliente, FechaDesde
+        Genera ClientesRuta CSV según instructivo V2.4.2.
+
+        TODOS los clientes del archivo Clientes deben estar en este archivo.
+        Si el cliente no tiene ruta asignada, se usa la ruta por defecto
+        del conector (codigo_ruta_default).
+        Sin historia: FechaDesde = 01/01/1900, FechaHasta = 31/12/9999.
         """
         headers = [
             'CodigoSucursal',
             'CodigoFuerza',
             'CodigoModoAtencion',
-            'CodigoRuta',
             'CodigoCliente',
+            'CodigoRuta',
             'FechaDesde',
             'FechaHasta',
-            'Periodicidad',
-            'Semana',
-            'VisitaLunes',
-            'VisitaMartes',
-            'VisitaMiercoles',
-            'VisitaJueves',
-            'VisitaViernes',
-            'VisitaSabado',
-            'VisitaDomingo',
-            'OrdenDeVisita',
         ]
-        
+
         rows = []
         for partner in partners:
-            if not partner.x_softys_codigo_ruta:
-                continue
-            
+            codigo_ruta = partner.x_softys_codigo_ruta
+            if not codigo_ruta:
+                codigo_ruta = connector.codigo_ruta_default or '00'
+
             row = [
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
                 self._format_integer(connector.codigo_fuerza or 1),  # CodigoFuerza
                 self._clean_text(connector.codigo_modo_atencion or 'PRE', 5),  # CodigoModoAtencion
-                self._format_integer(partner.x_softys_codigo_ruta or 0),  # CodigoRuta
                 self._clean_text(partner.id, 50),  # CodigoCliente
-                '2001/01/01',  # FechaDesde (constante si no hay historia)
-                '9999/12/31',  # FechaHasta (máxima si está activo)
-                self._format_integer(1),  # Periodicidad
-                self._format_integer(1),  # Semana
-                self._format_bool(partner.x_softys_dia_visita == 'LUN', '01'),  # VisitaLunes
-                self._format_bool(partner.x_softys_dia_visita == 'MAR', '01'),  # VisitaMartes
-                self._format_bool(partner.x_softys_dia_visita == 'MIE', '01'),  # VisitaMiercoles
-                self._format_bool(partner.x_softys_dia_visita == 'JUE', '01'),  # VisitaJueves
-                self._format_bool(partner.x_softys_dia_visita == 'VIE', '01'),  # VisitaViernes
-                self._format_bool(partner.x_softys_dia_visita == 'SAB', '01'),  # VisitaSabado
-                self._format_bool(partner.x_softys_dia_visita == 'DOM', '01'),  # VisitaDomingo
-                self._format_integer(partner.x_softys_secuencia or 0),  # OrdenDeVisita
+                self._format_integer(codigo_ruta),  # CodigoRuta
+                self.FECHA_DESDE_DEFAULT,  # FechaDesde (01/01/1900 sin historia)
+                self.FECHA_HASTA_DEFAULT,  # FechaHasta (31/12/9999 activo)
             ]
             rows.append(row)
-        
+
         filename = self._get_filename('ClientesRuta', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
-    def generate_stock_fisico(self, connector, stock_quants):
+
+    def generate_stock_fisico(self, connector, products):
         """
-        Genera StockFisico CSV según documentación Nextbyn.
-        
-        Campos clave únicos: CodigoDeposito, CodigoArticulo, FechaStock, VencimientoLote
+        Genera StockFisico CSV según instructivo V2.4.2.
+
+        Reglas del instructivo:
+        - Foto del stock del día de la transmisión.
+        - Debe tener TODOS los artículos habilitados del Maestro de Artículos
+          por cada depósito informado, incluso si no tienen stock (cantidad 0).
+        - Sin dato de lote: VencimientoLote = 31/12/9999.
+        - Fechas en DD/MM/YYYY.
+        - CodigoDeposito numérico.
         """
         headers = [
             'CodigoDeposito',
@@ -476,43 +569,79 @@ class NextbynExportEngine(models.AbstractModel):
             'CantidadDecimal',
             'FechaStock',
         ]
-        
+
+        today_str = fields.Date.today().strftime(self.DATE_FORMAT_CSV)
+
+        # Depósitos: almacenes marcados para exportar. Si no hay ninguno
+        # configurado, se usa un único depósito con el código del conector
+        # sobre todas las ubicaciones internas.
+        warehouses = self.env['stock.warehouse'].search([
+            ('x_softys_exportar', '=', True),
+        ])
+
+        # (codigo_deposito, location_ids)
+        depositos = []
+        if warehouses:
+            for wh in warehouses:
+                code = wh.x_softys_codigo_deposito or connector.codigo_deposito or '1'
+                location_ids = self.env['stock.location'].search([
+                    ('id', 'child_of', wh.view_location_id.id),
+                    ('usage', '=', 'internal'),
+                ]).ids
+                depositos.append((code, location_ids))
+        else:
+            location_ids = self.env['stock.location'].search([
+                ('usage', '=', 'internal'),
+            ]).ids
+            depositos.append((connector.codigo_deposito or '1', location_ids))
+
         rows = []
-        today = fields.Date.today()
-        
-        for quant in stock_quants:
-            # Obtener código de depósito (nombre corto del almacén)
-            warehouse = quant.location_id.warehouse_id
-            deposito_code = warehouse.code if warehouse else connector.codigo_deposito or '1'
-            
-            # Fecha de vencimiento del lote (si existe)
-            lot = quant.lot_id
-            vencimiento = lot.expiration_date if lot and lot.expiration_date else today
-            
-            row = [
-                self._clean_text(deposito_code),  # CodigoDeposito
-                self._format_integer(quant.product_id.id),  # CodigoArticulo
-                self._format_date(vencimiento, 'yyyymmdd'),  # VencimientoLote
-                self._format_decimal(quant.quantity, 6),  # CantidadDecimal
-                self._format_date(today, 'yyyymmdd'),  # FechaStock
-            ]
-            rows.append(row)
-        
+        for codigo_deposito, location_ids in depositos:
+            # Stock agregado por producto en este depósito
+            stock_by_product = {}
+            if location_ids:
+                groups = self.env['stock.quant'].read_group(
+                    domain=[
+                        ('location_id', 'in', location_ids),
+                        ('product_id', 'in', products.ids),
+                    ],
+                    fields=['quantity:sum'],
+                    groupby=['product_id'],
+                    lazy=False,
+                )
+                for group in groups:
+                    stock_by_product[group['product_id'][0]] = group['quantity']
+
+            # Una fila por artículo del maestro (aunque no tenga stock)
+            for product in products:
+                cantidad = stock_by_product.get(product.id, 0.0)
+                row = [
+                    self._format_integer(codigo_deposito),  # CodigoDeposito
+                    self._format_integer(product.id),  # CodigoArticulo
+                    self.VENCIMIENTO_LOTE_DEFAULT,  # VencimientoLote (sin lote: 31/12/9999)
+                    self._format_decimal(cantidad, 6),  # CantidadDecimal
+                    today_str,  # FechaStock
+                ]
+                rows.append(row)
+
         filename = self._get_filename('StockFisico', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     def generate_comprobantes(self, connector, invoices, product_ids=None):
         """
-        Genera Comprobantes CSV según documentación Nextbyn.
-        Solo campos obligatorios.
-        EsVenta siempre YES según requerimiento de Softys.
-        Opcionalmente filtra líneas por product_ids (para exportar solo líneas
-        de productos del proveedor Softys).
-        
-        Campos clave únicos: CodigoEmpresaFactura, TipoComprobante, LetraComprobante,
-                            SerieComprobante, NumeroComprobante, NumeroLinea
+        Genera Comprobantes CSV según instructivo V2.4.2.
+
+        Valor único: TipoComprobante + LetraComprobante + SerieComprobante +
+        NumeroComprobante + NumeroLinea (no puede repetirse).
+
+        Reglas:
+        - EsVenta siempre YES (interno, según instructivo).
+        - NC/devoluciones: solo CantidadDecimal en negativo.
+        - PrecioUnitarioBruto nunca 0 (precio de lista sin descuento ni impuestos).
+        - Bonificacion = porcentaje de descuento.
+        - Fechas DD/MM/YYYY.
         """
         headers = [
             'CodigoEmpresaFactura',
@@ -521,6 +650,7 @@ class NextbynExportEngine(models.AbstractModel):
             'SerieComprobante',
             'NumeroComprobante',
             'NumeroLinea',
+            'CodigoFuerza',
             'EsVenta',
             'CodigoArticulo',
             'DescripcionArticulo',
@@ -532,29 +662,44 @@ class NextbynExportEngine(models.AbstractModel):
             'FechaComprobante',
             'CodigoCliente',
             'CodigoSucursal',
+            'NombreCliente',
             'TipoContribuyente',
+            'Anulado',
+            'CodigoPersonal',
         ]
-        
+
         rows = []
         product_ids_set = set(product_ids or [])
-        
+
         for invoice in invoices:
             # Parsear número de factura argentina
             tipo, letra, serie, numero = self._parse_invoice_number(invoice)
-            
+            codigo_personal = self._get_vendedor_code(invoice, connector)
+
             line_num = 0
             lines = invoice.invoice_line_ids.filtered(lambda l: l.product_id)
             if product_ids_set:
                 lines = lines.filtered(lambda l: l.product_id.id in product_ids_set)
-            
+
             for line in lines:
                 line_num += 1
-                
-                # Cantidad: positiva para facturas, negativa para NC
+
+                # Cantidad: positiva para facturas, negativa para NC.
+                # Solo la cantidad va en negativo (el resto se calcula solo).
                 cantidad = line.quantity
                 if invoice.move_type == 'out_refund':
                     cantidad = -abs(cantidad)
-                
+
+                # PrecioUnitarioBruto nunca debe ser 0 (instructivo).
+                # Es el precio de lista facturado sin descuento ni impuestos.
+                precio = line.price_unit
+                if not precio:
+                    precio = line.product_id.lst_price or 0
+                    _logger.warning(
+                        f'Línea sin precio unitario en {invoice.name} '
+                        f'(producto {line.product_id.id}) - se usa precio de lista'
+                    )
+
                 row = [
                     self._format_integer(connector.company_code),  # CodigoEmpresaFactura
                     self._clean_text(tipo, 6),  # TipoComprobante
@@ -562,30 +707,34 @@ class NextbynExportEngine(models.AbstractModel):
                     self._format_integer(serie),  # SerieComprobante
                     self._format_integer(numero),  # NumeroComprobante
                     self._format_integer(line_num),  # NumeroLinea
+                    self._format_integer(connector.codigo_fuerza or 1),  # CodigoFuerza
                     self._format_bool(True, 'YESNO_upper'),  # EsVenta - siempre YES
                     self._format_integer(line.product_id.id),  # CodigoArticulo
                     self._clean_text(line.product_id.name, 50),  # DescripcionArticulo
                     self._format_integer(line.product_id.x_softys_unidades_bulto or 1),  # UnidadesPorBulto
                     self._format_decimal(cantidad, 6),  # CantidadDecimal
-                    self._format_decimal(line.price_unit, 6),  # PrecioUnitarioBruto
+                    self._format_decimal(precio, 6),  # PrecioUnitarioBruto
                     self._format_decimal(line.discount or 0, 3),  # Bonificacion
-                    self._format_date(invoice.invoice_date, 'ddmmyyyy'),  # FechaPedido
-                    self._format_date(invoice.invoice_date, 'ddmmyyyy'),  # FechaComprobante
+                    self._format_date(invoice.invoice_date),  # FechaPedido
+                    self._format_date(invoice.invoice_date),  # FechaComprobante
                     self._clean_text(invoice.partner_id.id, 50),  # CodigoCliente
                     self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
+                    self._clean_text(invoice.partner_id.name, 100),  # NombreCliente
                     self._get_tipo_contribuyente(invoice.partner_id),  # TipoContribuyente
+                    self._format_bool(False, 'SINO_upper'),  # Anulado (solo posted: NO)
+                    self._format_integer(codigo_personal),  # CodigoPersonal
                 ]
                 rows.append(row)
-        
+
         filename = self._get_filename('Comprobantes', connector.company_code)
         content = self._create_csv_content(headers, rows)
-        
+
         return filename, content, len(rows)
-    
+
     # =========================================================================
     # MÉTODOS AUXILIARES
     # =========================================================================
-    
+
     def _get_full_address(self, partner):
         """Construye dirección completa del partner."""
         parts = []
@@ -596,39 +745,48 @@ class NextbynExportEngine(models.AbstractModel):
         if partner.city:
             parts.append(partner.city)
         return ', '.join(parts) if parts else ''
-    
+
     def _get_tipo_contribuyente(self, partner):
         """
-        Obtiene código de tipo contribuyente.
-        Según documentación: texto de 2 caracteres.
+        Obtiene código de tipo contribuyente (2 caracteres).
+        Según instructivo: CF / EX / RI / MT / AU / NC / RN.
         """
-        # Mapeo de l10n_ar a códigos Nextbyn
         afip_type = partner.l10n_ar_afip_responsibility_type_id
         if afip_type:
             code = afip_type.code
             mapping = {
-                '1': 'RI',   # Responsable Inscripto
-                '4': 'EX',   # Exento
+                '1': 'RI',   # IVA Responsable Inscripto
+                '4': 'EX',   # IVA Sujeto Exento
                 '5': 'CF',   # Consumidor Final
-                '6': 'MT',   # Monotributista
-                '9': 'EX',   # Exento
+                '6': 'MT',   # Responsable Monotributo
+                '9': 'NC',   # Cliente del Exterior -> No Categorizado
+                '13': 'RN',  # Monotributista Social -> aproximación
             }
             return mapping.get(code, 'CF')
         return 'CF'  # Default: Consumidor Final
-    
+
     def _get_tipo_documento(self, partner):
         """
         Obtiene código de tipo de documento.
-        80 = CUIT, 96 = DNI, etc.
+        80 = CUIT, 86 = CUIL, 87 = CDI, 89 = LE, 90 = LC, 96 = DNI.
         """
         doc_type = partner.l10n_latam_identification_type_id
         if doc_type:
-            if 'cuit' in doc_type.name.lower():
+            name = doc_type.name.lower()
+            if 'cuit' in name:
                 return '80'
-            elif 'dni' in doc_type.name.lower():
+            elif 'cuil' in name:
+                return '86'
+            elif 'cdi' in name:
+                return '87'
+            elif name in ('le',):
+                return '89'
+            elif name in ('lc',):
+                return '90'
+            elif 'dni' in name:
                 return '96'
         return '96'  # Default: DNI
-    
+
     def _parse_invoice_number(self, invoice):
         """
         Parsea número de factura argentina.
@@ -636,13 +794,13 @@ class NextbynExportEngine(models.AbstractModel):
         Retorna: (tipo, letra, serie, numero)
         """
         name = invoice.name or ''
-        
+
         # Valores por defecto
         tipo = 'FCVTA'
         letra = 'A'
         serie = 1
         numero = 0
-        
+
         # Intentar parsear formato argentino
         if invoice.l10n_latam_document_type_id:
             doc_code = invoice.l10n_latam_document_type_id.code or ''
@@ -653,7 +811,7 @@ class NextbynExportEngine(models.AbstractModel):
                 tipo = 'NCRED'
             elif doc_code in ('2', '7', '12'):  # Notas de Débito
                 tipo = 'NDEB'
-            
+
             # Extraer letra
             doc_name = invoice.l10n_latam_document_type_id.name or ''
             if ' A' in doc_name or doc_name.endswith('A'):
@@ -662,7 +820,7 @@ class NextbynExportEngine(models.AbstractModel):
                 letra = 'B'
             elif ' C' in doc_name or doc_name.endswith('C'):
                 letra = 'C'
-        
+
         # Parsear número
         if name:
             parts = name.replace('-', ' ').split()
@@ -672,22 +830,22 @@ class NextbynExportEngine(models.AbstractModel):
                         serie = int(part)
                     else:
                         numero = int(part)
-        
+
         return tipo, letra, serie, numero
-    
+
     def _format_time(self, datetime_value):
         """Formatea hora."""
         if not datetime_value:
             return '00:00:00'
         return datetime_value.strftime(self.TIME_FORMAT)
-    
+
     def _get_vendedor_code(self, invoice, connector):
-        """Obtiene código de vendedor para factura."""
+        """Obtiene código de vendedor (CodigoPersonal) para la factura."""
         if invoice.x_softys_vendedor_id:
             return invoice.x_softys_vendedor_id.x_softys_codigo or 0
-        
+
         # Usar primer personal comercial como default
         if connector.personal_comercial_ids:
             return connector.personal_comercial_ids[0].codigo_personal
-        
+
         return 0

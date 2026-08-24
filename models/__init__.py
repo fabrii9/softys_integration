@@ -8,6 +8,7 @@ from . import softys_export_rule
 from . import softys_export_run
 from . import softys_canal
 # softys_subcanal ya definido en softys_canal.py
+from . import softys_localidad
 from . import softys_canal_mapping
 from . import res_partner
 from . import product_product

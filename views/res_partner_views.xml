@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Campos Nextbyn en la ficha del cliente (instructivo V2.4.2 - Clientes/ClientesRuta) -->
+    <record id="view_partner_form_softys" model="ir.ui.view">
+        <field name="name">res.partner.form.softys</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Nextbyn" name="nextbyn">
+                    <group name="nextbyn_cliente" string="Clientes (archivo Clientes)">
+                        <field name="x_softys_canal_id"/>
+                        <field name="x_softys_subcanal_id"/>
+                        <field name="x_softys_localidad_anexo_id"
+                               placeholder="Buscar localidad del Anexo (ej: Puerto Iguazú)"/>
+                        <field name="x_softys_anulado"/>
+                        <field name="x_softys_exportar"/>
+                    </group>
+                    <group name="nextbyn_ruta" string="Ruta (archivo ClientesRuta)">
+                        <field name="x_softys_codigo_ruta"/>
+                        <field name="x_softys_dia_visita"/>
+                        <field name="x_softys_secuencia"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

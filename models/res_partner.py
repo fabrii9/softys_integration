@@ -111,6 +111,16 @@ class ResPartner(models.Model):
         string='Código Postal Nextbyn',
         help='CodigoPostal - Código postal'
     )
+
+    # Localidad según Anexo "Ciudades argentinas v2" de Nextbyn.
+    # De aquí salen CodigoLocalidad, DescripcionLocalidad, CodigoProvincia
+    # y DescProvincia del archivo Clientes (obligatorios, instructivo V2.4.2).
+    x_softys_localidad_anexo_id = fields.Many2one(
+        'softys.localidad',
+        string='Localidad Nextbyn (Anexo)',
+        help='Localidad del Anexo "Ciudades argentinas v2" de Nextbyn. '
+             'Define CodigoLocalidad/Provincia en el archivo Clientes.'
+    )
     
     # Geolocalización
     x_softys_latitud = fields.Float(

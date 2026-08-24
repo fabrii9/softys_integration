@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Integración Nextbyn',
-    'version': '18.0.2.0.1',
+    'version': '18.0.3.0.0',
     'category': 'Integration',
     'summary': 'Integración con portal Nextbyn - Generación de CSVs según documentación oficial',
     'description': """
@@ -58,6 +58,7 @@
         'data/softys_canal_data.xml',
         'data/softys_subcanal_data.xml',
         'data/softys_mapping_data.xml',
+        'data/softys.localidad.csv',
         
         # Vistas - Menús (primero para que las acciones puedan referenciarlos)
         'views/menu.xml',
@@ -65,6 +66,7 @@
         # Vistas - Configuración
         'views/softys_connector_views.xml',
         'views/softys_export_views.xml',
+        'views/res_partner_views.xml',
         
         # Vistas - Configuración Dinámica CSVs
         'views/nextbyn_entity_views.xml',
