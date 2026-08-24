@@ -86,9 +86,17 @@ class NextbynExportEngine(models.AbstractModel):
         if partners:
             results.append(self.generate_clientes(connector, partners))
 
-        # Personal Comercial
-        if connector.personal_comercial_ids:
-            results.append(self.generate_personal_comercial(connector))
+        # Personal Comercial: se genera automáticamente con los vendedores
+        # reales (invoice_user_id) de las ventas de productos Softys.
+        # No requiere configuración manual.
+        if product_ids:
+            all_softys_invoices = self.env['account.move'].search([
+                ('move_type', 'in', ['out_invoice', 'out_refund']),
+                ('state', '=', 'posted'),
+                ('invoice_line_ids.product_id', 'in', product_ids),
+            ])
+            if all_softys_invoices:
+                results.append(self.generate_personal_comercial(connector, all_softys_invoices))
 
         # Rutas de Venta
         if connector.ruta_venta_ids:
@@ -418,12 +426,18 @@ class NextbynExportEngine(models.AbstractModel):
 
         return filename, content, len(rows)
 
-    def generate_personal_comercial(self, connector):
+    def generate_personal_comercial(self, connector, invoices):
         """
         Genera PersonalComercial CSV según instructivo V2.4.2.
 
-        Campo clave único: CodigoPersonal.
-        Cargos: V=Vendedor, S=Supervisor, G=Gerente
+        Se genera automáticamente con los vendedores reales: usuarios de Odoo
+        (invoice_user_id) que figuran en las ventas de productos Softys.
+
+        - CodigoPersonal = x_softys_codigo del empleado si está cargado,
+          si no, el ID del usuario de Odoo (res.users).
+        - Cargo = x_softys_cargo del empleado, si no 'V' (Vendedor).
+        - CodigoPersonalSuperior = usuario del jefe directo (hr.employee.parent_id).
+        - CodigoFuerza = x_softys_codigo_fuerza del empleado, si no el del conector.
         """
         headers = [
             'CodigoSucursal',
@@ -436,17 +450,26 @@ class NextbynExportEngine(models.AbstractModel):
         ]
 
         rows = []
-        for personal in connector.personal_comercial_ids:
+        users = invoices.mapped('invoice_user_id')
+        for user in users:
+            employee = user.employee_id
+            codigo_personal = self._get_codigo_personal(user)
+
+            # Superior: usuario vinculado al jefe directo del empleado
+            superior = ''
+            if employee and employee.parent_id and employee.parent_id.user_id:
+                superior = str(employee.parent_id.user_id.id)
+
             row = [
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
-                self._format_integer(personal.codigo_personal),  # CodigoPersonal
-                self._clean_text(personal.descripcion, 50),  # Descripcion
-                personal.cargo or 'V',  # Cargo (V/S/G)
-                self._format_bool(personal.anulado == '1', 'SINO_upper'),  # Anulado (NO/SI)
-                # CodigoPersonalSuperior: código del superior o vacío
-                self._format_integer(personal.codigo_personal_superior)
-                    if personal.codigo_personal_superior else '',
-                self._format_integer(personal.codigo_fuerza or connector.codigo_fuerza or 1),  # CodigoFuerza
+                self._format_integer(codigo_personal),  # CodigoPersonal
+                self._clean_text(user.name, 50),  # Descripcion
+                (employee.x_softys_cargo if employee and employee.x_softys_cargo else 'V'),  # Cargo
+                self._format_bool(not user.active, 'SINO_upper'),  # Anulado (NO/SI)
+                superior,  # CodigoPersonalSuperior (o vacío)
+                self._format_integer(
+                    (employee.x_softys_codigo_fuerza if employee and employee.x_softys_codigo_fuerza else 0)
+                    or connector.codigo_fuerza or 1),  # CodigoFuerza
             ]
             rows.append(row)
 
@@ -839,13 +862,28 @@ class NextbynExportEngine(models.AbstractModel):
             return '00:00:00'
         return datetime_value.strftime(self.TIME_FORMAT)
 
+    def _get_codigo_personal(self, user):
+        """
+        Código de personal (CodigoPersonal) para un usuario vendedor.
+        Prioridad: x_softys_codigo del empleado vinculado > ID del usuario.
+        """
+        employee = user.employee_id
+        if employee and employee.x_softys_codigo:
+            return employee.x_softys_codigo
+        return user.id
+
     def _get_vendedor_code(self, invoice, connector):
-        """Obtiene código de vendedor (CodigoPersonal) para la factura."""
+        """
+        CodigoPersonal para una factura: el vendedor real de la venta.
+        Prioridad: campo Vendedor de la factura (x_softys_vendedor_id) >
+        vendedor de la factura (invoice_user_id).
+        """
         if invoice.x_softys_vendedor_id:
-            return invoice.x_softys_vendedor_id.x_softys_codigo or 0
+            employee = invoice.x_softys_vendedor_id
+            return employee.x_softys_codigo or employee.id
 
-        # Usar primer personal comercial como default
-        if connector.personal_comercial_ids:
-            return connector.personal_comercial_ids[0].codigo_personal
+        if invoice.invoice_user_id:
+            return self._get_codigo_personal(invoice.invoice_user_id)
 
+        _logger.warning(f'Factura {invoice.name} sin vendedor - CodigoPersonal=0')
         return 0

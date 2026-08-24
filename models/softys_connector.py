@@ -176,7 +176,9 @@ class SoftysConnector(models.Model):
     personal_comercial_ids = fields.One2many(
         'softys.personal.comercial',
         'connector_id',
-        string='Personal Comercial'
+        string='Personal Comercial',
+        help='DEPRECADO: el archivo PersonalComercial se genera automáticamente '
+             'con los vendedores reales de las ventas (invoice_user_id).'
     )
     
     # Configuración de rutas de venta
@@ -388,7 +390,9 @@ class SoftysRutaVenta(models.Model):
     codigo_personal = fields.Char(
         string='Código Personal',
         required=True,
-        help='Código del vendedor asignado a la ruta'
+        help='Código del vendedor asignado a la ruta. Debe coincidir con el '
+             'CodigoPersonal de PersonalComercial: ID del usuario de Odoo '
+             '(o el "Código Personal Nextbyn" del empleado si está cargado).'
     )
     
     fecha_desde = fields.Char(
