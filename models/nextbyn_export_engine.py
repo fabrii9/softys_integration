@@ -812,19 +812,22 @@ class NextbynExportEngine(models.AbstractModel):
 
     def _parse_invoice_number(self, invoice):
         """
-        Parsea número de factura argentina.
-        Formato esperado: FA-A 0001-00000001
+        Parsea el comprobante para Nextbyn.
         Retorna: (tipo, letra, serie, numero)
+
+        Formatos soportados:
+        - Fiscal AR: 'FA-A 00003-00002620' (con l10n_latam_document_type)
+        - Legacy/demo: 'D3FD/2026/00122' (sin tipo de documento fiscal)
         """
+        import re
         name = invoice.name or ''
 
         # Valores por defecto
         tipo = 'FCVTA'
         letra = 'A'
-        serie = 1
+        serie = 0
         numero = 0
 
-        # Intentar parsear formato argentino
         if invoice.l10n_latam_document_type_id:
             doc_code = invoice.l10n_latam_document_type_id.code or ''
             # Mapear códigos AFIP a tipos Nextbyn
@@ -843,16 +846,41 @@ class NextbynExportEngine(models.AbstractModel):
                 letra = 'B'
             elif ' C' in doc_name or doc_name.endswith('C'):
                 letra = 'C'
+        else:
+            # Sin tipo fiscal (legacy/demo): deducir del prefijo del nombre
+            prefix = name.upper()
+            if prefix.startswith('NC'):
+                tipo = 'NCRED'
+            elif prefix.startswith('ND'):
+                tipo = 'NDEB'
 
-        # Parsear número
-        if name:
-            parts = name.replace('-', ' ').split()
-            for part in parts:
-                if part.isdigit():
-                    if len(part) <= 5:
-                        serie = int(part)
-                    else:
-                        numero = int(part)
+        # Formato fiscal: 'FA-A 00003-00002620'
+        m = re.search(r'(\d{4,5})\s*-\s*(\d{1,8})\s*$', name)
+        if m:
+            serie = int(m.group(1))
+            numero = int(m.group(2))
+        else:
+            # Formato legacy/demo: 'D3FD/2026/00122'
+            m = re.search(r'/(\d{4})/(\d+)\s*$', name)
+            if m:
+                numero = int(m.group(2))
+                # Serie ficticia estable por diario (9000+id) para no colisionar
+                # con puntos de venta fiscales reales
+                serie = 9000 + (invoice.journal_id.id or 0)
+            else:
+                nums = re.findall(r'\d+', name)
+                if nums:
+                    numero = int(nums[-1])
+
+        if not serie:
+            serie = 1
+        if not numero:
+            # Último recurso: garantizar unicidad con el ID interno
+            numero = invoice.id
+            _logger.warning(
+                f'No se pudo parsear número de comprobante {name!r} - '
+                f'se usa ID interno {invoice.id}'
+            )
 
         return tipo, letra, serie, numero
 
