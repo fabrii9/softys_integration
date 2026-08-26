@@ -314,14 +314,15 @@ class NextbynExportEngine(models.AbstractModel):
             if not product.x_softys_valor_umedida:
                 _logger.warning(
                     f'Producto {product.id} ({product.name}) sin Valor Unidad '
-                    f'de Medida (ValorUMedida) - se exporta en 0'
+                    f'de Medida (ValorUMedida) - se exporta en 1 (autorizado por Nextbyn)'
                 )
             row = [
                 self._format_integer(product.id),  # CodigoArticulo
                 self._clean_text(product.name, 50),  # DescripcionArticulo
                 self._format_bool(not product.active, 'SINO_upper'),  # Anulado (NO/SI)
                 self._format_integer(product.x_softys_unidades_bulto or 1),  # UnidadesXBulto
-                self._format_decimal(product.x_softys_valor_umedida or 0, 4),  # ValorUMedida
+                # Si no se tiene el dato del peso, va 1 (autorizado por Nextbyn)
+                self._format_decimal(product.x_softys_valor_umedida or 1, 4),  # ValorUMedida
             ]
             rows.append(row)
 
@@ -403,8 +404,10 @@ class NextbynExportEngine(models.AbstractModel):
                 self._format_integer(connector.codigo_sucursal or 1),  # CodigoSucursal
                 self._clean_text(partner.id, 50),  # CodigoCliente
                 self._clean_text(partner.name, 100),  # Nombre
-                self._clean_text(self._get_full_address(partner), 100),  # Domicilio
-                self._clean_text(partner.x_softys_numero_documento or '', 50),  # NumeroCuit
+                # Si no hay domicilio: "Sin Domicilio" (autorizado por Nextbyn)
+                self._clean_text(self._get_full_address(partner), 100) or 'Sin Domicilio',  # Domicilio
+                # Si no hay CUIT: 11111111 (autorizado por Nextbyn)
+                self._clean_text(partner.x_softys_numero_documento or '', 50) or '11111111',  # NumeroCuit
                 id_canal,  # IdCanalAgrupa
                 desc_canal,  # DescCanalAgrupa
                 id_subcanal,  # IdSubCanalAgrupa
