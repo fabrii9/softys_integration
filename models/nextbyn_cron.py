@@ -152,9 +152,7 @@ class NextbynExportCron(models.Model):
             'code': f'model.browse({self.id}).execute_export()',
             'interval_number': self.cron_interval,
             'interval_type': self.cron_interval_type,
-            'numbercall': -1,
             'active': False,
-            'doall': False,
         })
         
         self.ir_cron_id = cron.id
