@@ -9,6 +9,12 @@
             <form string="Configuración Softys">
                 <header>
                     <button name="action_export_manual" string="Exportar Ahora" type="object" class="oe_highlight"/>
+                    <button name="action_send_now" string="Generar y Transmitir"
+                            type="object" class="oe_highlight"
+                            invisible="not sftp_enabled"
+                            confirm="Los archivos se suben directo al portal productivo de Nextbyn. ¿Confirma la transmisión?"/>
+                    <button name="action_test_sftp_connection" string="Probar Conexión SFTP"
+                            type="object" invisible="not sftp_enabled"/>
                     <button name="action_view_exports" string="Ver Exportaciones" type="object"/>
                     <field name="active" widget="boolean_toggle"/>
                 </header>
@@ -81,6 +87,34 @@
                                     <field name="atiende_domingo"/>
                                 </list>
                             </field>
+                        </page>
+                        <page string="Transmisión SFTP">
+                            <group>
+                                <group string="Conexión">
+                                    <field name="sftp_enabled"/>
+                                    <field name="sftp_host" invisible="not sftp_enabled"
+                                           required="sftp_enabled"/>
+                                    <field name="sftp_port" invisible="not sftp_enabled"/>
+                                    <field name="sftp_user" invisible="not sftp_enabled"
+                                           required="sftp_enabled"/>
+                                    <field name="sftp_password" password="True"
+                                           invisible="not sftp_enabled"
+                                           required="sftp_enabled"/>
+                                    <field name="sftp_path" invisible="not sftp_enabled"/>
+                                    <field name="sftp_timeout" invisible="not sftp_enabled"/>
+                                </group>
+                                <group string="Última Transmisión" invisible="not sftp_enabled">
+                                    <field name="sftp_last_send"/>
+                                    <field name="sftp_last_status"/>
+                                    <field name="sftp_last_message"/>
+                                </group>
+                            </group>
+                            <div class="alert alert-warning" role="alert"
+                                 invisible="not sftp_enabled">
+                                Todo lo que se transmite por SFTP va directo al portal
+                                productivo de Nextbyn. La transmisión debe completarse
+                                antes de las 23:30 de cada día.
+                            </div>
                         </page>
                     </notebook>
                 </sheet>

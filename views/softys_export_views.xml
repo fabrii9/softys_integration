@@ -18,10 +18,18 @@
                     <button name="action_run_export" string="Ejecutar Exportación" 
                             type="object" class="oe_highlight" 
                             invisible="state != 'draft'"/>
+                    <button name="action_resend_sftp" string="Reenviar a Nextbyn"
+                            type="object"
+                            invisible="state != 'done' or file_count == 0"
+                            confirm="Los archivos se suben directo al portal productivo de Nextbyn. ¿Confirma el reenvío?"/>
                     <field name="state" widget="statusbar" 
                            statusbar_visible="draft,running,done"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Transmitida" bg_color="text-bg-success"
+                            invisible="sftp_state != 'sent'"/>
+                    <widget name="web_ribbon" title="Envío fallido" bg_color="text-bg-danger"
+                            invisible="sftp_state != 'failed'"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="%(action_softys_export_file)d" type="action"
                                 class="oe_stat_button" icon="fa-file">
@@ -43,6 +51,8 @@
                         <group>
                             <field name="error_count"/>
                             <field name="warning_count"/>
+                            <field name="sftp_state"/>
+                            <field name="sftp_message" invisible="not sftp_message"/>
                         </group>
                     </group>
                     
@@ -114,6 +124,10 @@
                        decoration-danger="state == 'failed'"/>
                 <field name="duration"/>
                 <field name="file_count"/>
+                <field name="sftp_state" widget="badge"
+                       decoration-success="sftp_state == 'sent'"
+                       decoration-danger="sftp_state == 'failed'"
+                       decoration-info="sftp_state == 'pending'"/>
                 <field name="error_count"/>
                 <field name="warning_count"/>
             </list>

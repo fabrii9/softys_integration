@@ -122,6 +122,18 @@ class SoftysExportRun(models.Model):
         compute='_compute_error_count'
     )
     
+    sftp_state = fields.Selection([
+        ('pending', 'No transmitida'),
+        ('sent', 'Transmitida'),
+        ('failed', 'Fallida'),
+    ], string='Transmisión SFTP', default='pending', readonly=True,
+       help='Estado del envío de los archivos al portal Nextbyn')
+
+    sftp_message = fields.Text(
+        string='Detalle Transmisión',
+        readonly=True
+    )
+
     notes = fields.Text(
         string='Notas'
     )
@@ -193,12 +205,24 @@ class SoftysExportRun(models.Model):
             results = engine.export_all(self.connector_id, date_from, date_to)
             
             # Guardar cada archivo generado
+            generados = []
             for filename, content, row_count in results:
                 if content:
                     file_type = self._get_file_type_from_filename(filename)
                     self._save_csv_content(filename, content, file_type)
                     self._log('info', f'{filename}: {row_count} registros exportados')
+                    encoding = self.connector_id.csv_encoding or 'utf-8'
+                    try:
+                        csv_bytes = content.encode(encoding)
+                    except Exception:
+                        csv_bytes = content.encode('utf-8')
+                    generados.append((filename, csv_bytes))
             
+            # Transmitir al portal Nextbyn (Etapa 6 del instructivo).
+            # Los 7 archivos van juntos y sueltos, sin comprimir.
+            if self.connector_id.sftp_enabled:
+                self._send_to_nextbyn(generados)
+
             # Finalizar
             self.write({
                 'state': 'done',
@@ -225,6 +249,99 @@ class SoftysExportRun(models.Model):
             self._log('error', f'Error en exportación: {str(e)}')
             raise
     
+    def _send_to_nextbyn(self, generados):
+        """
+        Transmite los archivos generados al portal Nextbyn por SFTP.
+
+        Un fallo de transmisión no invalida la exportación: los archivos ya
+        quedaron guardados y se pueden reenviar con el botón de la corrida.
+        """
+        self.ensure_one()
+        connector = self.connector_id
+
+        if not generados:
+            self._log('warning', 'No hay archivos para transmitir por SFTP')
+            return False
+
+        try:
+            enviados = connector.send_files_sftp(generados)
+        except Exception as e:
+            mensaje = str(e)
+            self.write({'sftp_state': 'failed', 'sftp_message': mensaje})
+            connector.write({
+                'sftp_last_send': fields.Datetime.now(),
+                'sftp_last_status': 'failed',
+                'sftp_last_message': mensaje,
+            })
+            self._log('error', f'Error transmitiendo a Nextbyn: {mensaje}')
+            self._notify_sftp_failure(mensaje)
+            return False
+
+        detalle = _('%s archivos transmitidos a %s') % (
+            len(enviados), connector.sftp_host)
+        self.write({'sftp_state': 'sent', 'sftp_message': detalle})
+        self._log('info', detalle)
+        return True
+
+    def _notify_sftp_failure(self, mensaje):
+        """
+        Avisa por mail cuando falla la transmisión.
+
+        El instructivo pide configurar notificaciones de alerta para el
+        responsable del envío.
+        """
+        self.ensure_one()
+        destinatario = self.env['ir.config_parameter'].sudo().get_param(
+            'softys_integration.alert_email'
+        )
+        if not destinatario:
+            return
+
+        self.env['mail.mail'].sudo().create({
+            'subject': _('[Nextbyn] Falló la transmisión SFTP del %s') % (
+                fields.Date.today().strftime('%d/%m/%Y')),
+            'email_to': destinatario,
+            'body_html': _(
+                '<p>No se pudieron transmitir los archivos al portal Nextbyn.</p>'
+                '<p><b>Corrida:</b> #%(run)s<br/>'
+                '<b>Servidor:</b> %(host)s:%(port)s</p>'
+                '<p><b>Error:</b><br/><pre>%(error)s</pre></p>'
+            ) % {
+                'run': self.id,
+                'host': self.connector_id.sftp_host or '',
+                'port': self.connector_id.sftp_port or '',
+                'error': mensaje,
+            },
+        }).send()
+
+    def action_resend_sftp(self):
+        """Reenvía los archivos de esta corrida sin regenerarlos."""
+        self.ensure_one()
+
+        if not self.file_ids:
+            raise UserError(_('Esta corrida no tiene archivos para reenviar.'))
+
+        generados = [
+            (f.name, base64.b64decode(f.datas))
+            for f in self.file_ids if f.datas
+        ]
+        enviados = self.connector_id.send_files_sftp(generados)
+
+        detalle = _('%s archivos retransmitidos a %s') % (
+            len(enviados), self.connector_id.sftp_host)
+        self.write({'sftp_state': 'sent', 'sftp_message': detalle})
+        self._log('info', detalle)
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Transmisión completada'),
+                'message': detalle,
+                'type': 'success',
+            },
+        }
+
     def _get_file_type_from_filename(self, filename):
         """Determina el tipo de archivo desde el nombre."""
         filename_lower = filename.lower()

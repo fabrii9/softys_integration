@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            Transmisión diaria al portal Nextbyn.
+
+            El instructivo exige que el envío se complete antes de las 23:30 y
+            que se haga al cierre de la jornada comercial. Se programa a las
+            21:00 de Argentina, que deja margen para reintentos.
+
+            ir.cron guarda nextcall en UTC y Argentina es UTC-3, así que las
+            21:00 locales son las 00:00 UTC del día siguiente.
+
+            Se activa desde el conector una vez cargadas las credenciales.
+        -->
+        <record id="ir_cron_softys_sftp_daily" model="ir.cron">
+            <field name="name">Nextbyn: Transmisión diaria SFTP</field>
+            <field name="model_id" ref="model_softys_connector"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_daily_send()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active" eval="False"/>
+            <field name="nextcall"
+                   eval="(DateTime.now().replace(hour=0, minute=0, second=0) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        </record>
+
+    </data>
+</odoo>

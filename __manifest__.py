@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Integración Nextbyn',
-    'version': '18.0.3.0.0',
+    'version': '18.0.4.0.0',
     'category': 'Integration',
     'summary': 'Integración con portal Nextbyn - Generación de CSVs según documentación oficial',
     'description': """
@@ -40,6 +40,9 @@
     'author': 'Aftermoves',
     'website': 'https://aftermoves.com',
     'license': 'LGPL-3',
+    'external_dependencies': {
+        'python': ['paramiko'],
+    },
     'depends': [
         'base',
         'product',
@@ -78,6 +81,7 @@
         # Datos de entidades preconfiguradas
         'data/nextbyn_entity_data.xml',
         'data/nextbyn_cron_data.xml',
+        'data/softys_sftp_cron.xml',
     ],
     'demo': [
         # 'demo/demo_data.xml',

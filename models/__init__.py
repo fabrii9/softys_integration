@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from . import softys_connector
+from . import softys_sftp
 from . import softys_export_template
 from . import softys_export_mapping
 # softys_cliente_mapping ya definido en softys_export_mapping.py
