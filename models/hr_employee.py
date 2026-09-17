@@ -33,3 +33,43 @@ class HrEmployee(models.Model):
         default=False,
         help='Indica si este empleado se exporta como Personal Comercial'
     )
+
+
+class HrEmployeePublic(models.Model):
+    """
+    Espejo de los campos Nextbyn en el perfil público del empleado.
+
+    hr.employee._check_private_fields() rechaza con AccessError cualquier campo
+    que exista en hr.employee pero no acá. El POS lee pos.config -> hr.employee
+    sin permisos de RRHH, cae en este modelo público y rompía la carga de datos
+    (KeyError: 'pos.config'). Declarándolos como related el POS puede leerlos.
+    """
+    _inherit = 'hr.employee.public'
+
+    x_softys_codigo = fields.Char(
+        string='Código Personal Nextbyn',
+        related='employee_id.x_softys_codigo',
+        compute_sudo=True,
+        readonly=True,
+    )
+
+    x_softys_cargo = fields.Selection(
+        related='employee_id.x_softys_cargo',
+        string='Cargo Nextbyn',
+        compute_sudo=True,
+        readonly=True,
+    )
+
+    x_softys_codigo_fuerza = fields.Integer(
+        string='Código Fuerza',
+        related='employee_id.x_softys_codigo_fuerza',
+        compute_sudo=True,
+        readonly=True,
+    )
+
+    x_softys_exportar = fields.Boolean(
+        string='Exportar a Nextbyn',
+        related='employee_id.x_softys_exportar',
+        compute_sudo=True,
+        readonly=True,
+    )
