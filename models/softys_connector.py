@@ -133,6 +133,23 @@ class SoftysConnector(models.Model):
              'cliente no tiene localidad del anexo asignada (CodigoLocalidad)'
     )
     
+    # Defaults para clientes nuevos sin clasificar
+    canal_default_id = fields.Many2one(
+        'softys.canal',
+        string='Canal por Defecto',
+        help='Canal Nextbyn que se usa cuando un cliente todavía no fue '
+             'clasificado. Evita que IdCanalAgrupa salga vacío, que es un '
+             'campo obligatorio del archivo Clientes.'
+    )
+
+    localidad_anexo_default_id = fields.Many2one(
+        'softys.localidad',
+        string='Localidad por Defecto (Anexo)',
+        help='Localidad del Anexo Nextbyn que se usa cuando un cliente no '
+             'tiene una asignada. Completa CodigoLocalidad, '
+             'DescripcionLocalidad, CodigoProvincia y DescProvincia.'
+    )
+
     # Configuración de fechas extremas (formato DD/MM/YYYY según instructivo V2.4.2)
     fecha_desde_default = fields.Char(
         string='Fecha Desde Default',
@@ -280,6 +297,32 @@ class SoftysConnector(models.Model):
                 # No detener el cron si falla una empresa
                 continue
     
+    def _tz_compania(self):
+        """Huso de la compañía, con Argentina como último recurso."""
+        self.ensure_one()
+        return (self.company_id.partner_id.tz
+                or self.env.user.tz
+                or 'America/Argentina/Buenos_Aires')
+
+    def fecha_local_ahora(self):
+        """Fecha y hora actuales en el huso de la compañía."""
+        self.ensure_one()
+        return fields.Datetime.context_timestamp(
+            self.with_context(tz=self._tz_compania()),
+            fields.Datetime.now(),
+        )
+
+    def fecha_local_hoy(self):
+        """
+        Fecha de hoy en el huso de la compañía, no en UTC.
+
+        El cron corre a las 21:00 de Argentina, que en UTC ya es el día
+        siguiente. Con fields.Date.today() el lote salía fechado un día
+        adelante y se perdía la venta de la jornada que se está cerrando.
+        """
+        self.ensure_one()
+        return self.fecha_local_ahora().date()
+
     def _create_output_directory(self):
         """Crear carpeta de salida si no existe"""
         self.ensure_one()

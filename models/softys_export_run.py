@@ -198,8 +198,9 @@ class SoftysExportRun(models.Model):
             
             # Rango de fechas para comprobantes según configuración del conector
             days_back = self.connector_id.days_back or 30
-            date_from = fields.Date.today() - timedelta(days=days_back)
-            date_to = fields.Date.today()
+            hoy = self.connector_id.fecha_local_hoy()
+            date_from = hoy - timedelta(days=days_back)
+            date_to = hoy
             
             # Ejecutar exportación completa
             results = engine.export_all(self.connector_id, date_from, date_to)
@@ -297,22 +298,28 @@ class SoftysExportRun(models.Model):
         if not destinatario:
             return
 
-        self.env['mail.mail'].sudo().create({
-            'subject': _('[Nextbyn] Falló la transmisión SFTP del %s') % (
-                fields.Date.today().strftime('%d/%m/%Y')),
-            'email_to': destinatario,
-            'body_html': _(
-                '<p>No se pudieron transmitir los archivos al portal Nextbyn.</p>'
-                '<p><b>Corrida:</b> #%(run)s<br/>'
-                '<b>Servidor:</b> %(host)s:%(port)s</p>'
-                '<p><b>Error:</b><br/><pre>%(error)s</pre></p>'
-            ) % {
-                'run': self.id,
-                'host': self.connector_id.sftp_host or '',
-                'port': self.connector_id.sftp_port or '',
-                'error': mensaje,
-            },
-        }).send()
+        # El aviso no puede tumbar el registro del fallo: si el SMTP no anda,
+        # el mail queda encolado y el error se deja en el log del servidor.
+        try:
+            mail = self.env['mail.mail'].sudo().create({
+                'subject': _('[Nextbyn] Falló la transmisión SFTP del %s') % (
+                    fields.Date.today().strftime('%d/%m/%Y')),
+                'email_to': destinatario,
+                'body_html': _(
+                    '<p>No se pudieron transmitir los archivos al portal Nextbyn.</p>'
+                    '<p><b>Corrida:</b> #%(run)s<br/>'
+                    '<b>Servidor:</b> %(host)s:%(port)s</p>'
+                    '<p><b>Error:</b><br/><pre>%(error)s</pre></p>'
+                ) % {
+                    'run': self.id,
+                    'host': self.connector_id.sftp_host or '',
+                    'port': self.connector_id.sftp_port or '',
+                    'error': mensaje,
+                },
+            })
+            mail.send(raise_exception=False)
+        except Exception:
+            _logger.exception('Nextbyn: no se pudo enviar el aviso de fallo')
 
     def action_resend_sftp(self):
         """Reenvía los archivos de esta corrida sin regenerarlos."""

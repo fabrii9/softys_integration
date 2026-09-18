@@ -9,6 +9,7 @@ Reglas del instructivo V2.4.2 (Etapa 6) que condicionan este código:
 """
 
 import logging
+import traceback
 
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
@@ -229,25 +230,74 @@ class SoftysConnector(models.Model):
             return False
 
         for connector in conectores:
+            connector_id = connector.id
+            company_code = connector.company_code
+
+            # La corrida se confirma antes de exportar. Si después falla algo,
+            # el rollback vuelve hasta acá y el registro del intento sobrevive:
+            # sin esto un fallo borraba la corrida y sus logs, y no quedaba
+            # rastro de qué había pasado.
             run = self.env['softys.export.run'].create({
-                'connector_id': connector.id,
+                'connector_id': connector_id,
                 'state': 'draft',
             })
+            run_id = run.id
+            self.env.cr.commit()
+
             try:
                 run.action_run_export()
-                self.env.cr.commit()
             except Exception as e:
-                # El cron no debe morir: se registra y se sigue con el resto.
+                # El cron no debe morir: se deja constancia y se sigue con el
+                # resto de los conectores.
                 self.env.cr.rollback()
-                _logger.exception('Nextbyn SFTP: falló la corrida diaria del conector %s',
-                                  connector.company_code)
+                # Tras el rollback los registros en caché quedan inservibles,
+                # así que se descarta el caché y se vuelven a leer.
+                self.env.clear()
+                _logger.exception(
+                    'Nextbyn SFTP: falló la corrida diaria del conector %s',
+                    company_code)
+                self._registrar_fallo_corrida(run_id, connector_id, e)
+
+        return True
+
+    def _registrar_fallo_corrida(self, run_id, connector_id, error):
+        """
+        Deja asentado en la corrida y en el conector por qué falló el envío.
+
+        Se ejecuta después de un rollback, con el caché ya descartado, y en su
+        propia transacción: si registrar el fallo también fallara, el cron
+        igual debe terminar y pasar al siguiente conector.
+        """
+        detalle = traceback.format_exc()
+        resumen = str(error) or _('Error sin detalle')
+
+        try:
+            run = self.env['softys.export.run'].browse(run_id)
+            if run.exists():
+                run.write({
+                    'state': 'failed',
+                    'end_date': fields.Datetime.now(),
+                    'sftp_state': 'failed',
+                    'sftp_message': detalle,
+                })
+                run._log('error', _('Falló la corrida automática: %s') % resumen)
+
+            connector = self.browse(connector_id)
+            if connector.exists():
                 connector.write({
                     'sftp_last_send': fields.Datetime.now(),
                     'sftp_last_status': 'failed',
-                    'sftp_last_message': str(e),
+                    'sftp_last_message': resumen,
                 })
-                self.env.cr.commit()
-        return True
+                if run.exists():
+                    run._notify_sftp_failure(detalle)
+
+            self.env.cr.commit()
+        except Exception:
+            self.env.cr.rollback()
+            _logger.exception(
+                'Nextbyn SFTP: no se pudo registrar el fallo de la corrida %s',
+                run_id)
 
     def action_send_now(self):
         """Genera y transmite el lote en el momento, desde el conector."""

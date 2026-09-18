@@ -88,6 +88,17 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Valores por Defecto">
+                            <div class="alert alert-info" role="alert">
+                                Se aplican a los clientes que todavía no fueron
+                                clasificados, para que los campos obligatorios del
+                                archivo Clientes nunca viajen vacíos.
+                            </div>
+                            <group>
+                                <field name="canal_default_id"/>
+                                <field name="localidad_anexo_default_id"/>
+                            </group>
+                        </page>
                         <page string="Transmisión SFTP">
                             <group>
                                 <group string="Conexión">

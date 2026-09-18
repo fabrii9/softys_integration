@@ -180,17 +180,25 @@ class NextbynExportEngine(models.AbstractModel):
     # UTILIDADES DE FORMATO
     # =========================================================================
 
-    def _get_timestamp(self):
-        """Genera timestamp para nombre de archivo: AAAAMMDDHHMMSS"""
+    def _get_timestamp(self, connector=None):
+        """
+        Genera timestamp para nombre de archivo: AAAAMMDDHHMMSS.
+
+        Va en hora local de la compañía: el nombre identifica el lote del día
+        ante Nextbyn y el cron corre a las 21:00 de Argentina, que en UTC ya
+        es el día siguiente.
+        """
+        if connector is not None:
+            return connector.fecha_local_ahora().strftime('%Y%m%d%H%M%S')
         return datetime.now().strftime('%Y%m%d%H%M%S')
 
-    def _get_filename(self, entity_name, company_code):
+    def _get_filename(self, entity_name, company_code, connector=None):
         """
         Genera nombre de archivo según instructivo V2.4.2:
         NombreArchivo + "00" + EEEE + AAAAMMDDHHMMSS + .csv
         (zfill(6) equivale a "00" + EEEE para códigos de 4 dígitos)
         """
-        timestamp = self._get_timestamp()
+        timestamp = self._get_timestamp(connector)
         code = str(company_code).zfill(6)
         return f"{entity_name}{code}{timestamp}.csv"
 
@@ -326,7 +334,7 @@ class NextbynExportEngine(models.AbstractModel):
             ]
             rows.append(row)
 
-        filename = self._get_filename('Articulos', connector.company_code)
+        filename = self._get_filename('Articulos', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -369,8 +377,13 @@ class NextbynExportEngine(models.AbstractModel):
             canal = partner.x_softys_canal_id
             subcanal = partner.x_softys_subcanal_id
             if not canal:
+                # IdCanalAgrupa es obligatorio: sin default el cliente viajaba
+                # con el campo vacío y Nextbyn rechaza el archivo.
+                canal = connector.canal_default_id
                 _logger.warning(
-                    f'Cliente {partner.id} ({partner.name}) sin canal Nextbyn asignado'
+                    f'Cliente {partner.id} ({partner.name}) sin canal Nextbyn '
+                    f'asignado - se usa el canal por defecto del conector '
+                    f'({canal.nombre if canal else "SIN DEFAULT"})'
                 )
             id_canal = self._format_integer(canal.codigo) if canal else ''
             desc_canal = self._clean_text(canal.nombre, 100) if canal else ''
@@ -382,7 +395,8 @@ class NextbynExportEngine(models.AbstractModel):
                 desc_subcanal = desc_canal
 
             # Localidad / Provincia según Anexo (con fallback a defaults del conector)
-            localidad = partner.x_softys_localidad_anexo_id
+            localidad = (partner.x_softys_localidad_anexo_id
+                         or connector.localidad_anexo_default_id)
             if localidad:
                 cod_localidad = str(localidad.id_localidad)
                 desc_localidad = self._clean_text(localidad.nombre, 100)
@@ -424,7 +438,7 @@ class NextbynExportEngine(models.AbstractModel):
             ]
             rows.append(row)
 
-        filename = self._get_filename('Clientes', connector.company_code)
+        filename = self._get_filename('Clientes', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -476,7 +490,7 @@ class NextbynExportEngine(models.AbstractModel):
             ]
             rows.append(row)
 
-        filename = self._get_filename('PersonalComercial', connector.company_code)
+        filename = self._get_filename('PersonalComercial', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -530,7 +544,7 @@ class NextbynExportEngine(models.AbstractModel):
             ]
             rows.append(row)
 
-        filename = self._get_filename('RutasDeVenta', connector.company_code)
+        filename = self._get_filename('RutasDeVenta', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -571,7 +585,7 @@ class NextbynExportEngine(models.AbstractModel):
             ]
             rows.append(row)
 
-        filename = self._get_filename('ClientesRuta', connector.company_code)
+        filename = self._get_filename('ClientesRuta', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -596,7 +610,7 @@ class NextbynExportEngine(models.AbstractModel):
             'FechaStock',
         ]
 
-        today_str = fields.Date.today().strftime(self.DATE_FORMAT_CSV)
+        today_str = connector.fecha_local_hoy().strftime(self.DATE_FORMAT_CSV)
 
         # Depósitos: almacenes marcados para exportar. Si no hay ninguno
         # configurado, se usa un único depósito con el código del conector
@@ -650,7 +664,7 @@ class NextbynExportEngine(models.AbstractModel):
                 ]
                 rows.append(row)
 
-        filename = self._get_filename('StockFisico', connector.company_code)
+        filename = self._get_filename('StockFisico', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
@@ -752,7 +766,7 @@ class NextbynExportEngine(models.AbstractModel):
                 ]
                 rows.append(row)
 
-        filename = self._get_filename('Comprobantes', connector.company_code)
+        filename = self._get_filename('Comprobantes', connector.company_code, connector)
         content = self._create_csv_content(headers, rows)
 
         return filename, content, len(rows)
