@@ -230,50 +230,43 @@ class SoftysConnector(models.Model):
             return False
 
         for connector in conectores:
-            connector_id = connector.id
             company_code = connector.company_code
 
-            # La corrida se confirma antes de exportar. Si después falla algo,
-            # el rollback vuelve hasta acá y el registro del intento sobrevive:
-            # sin esto un fallo borraba la corrida y sus logs, y no quedaba
-            # rastro de qué había pasado.
+            # Cada conector va dentro de un savepoint. El scheduler es el dueño
+            # de la transacción del cron, así que acá no se hace commit ni
+            # rollback: hacerlo suelta el lock que Odoo toma sobre ir_cron y el
+            # scheduler aborta la corrida entera (por eso el cron fallaba
+            # mientras el mismo código andaba bien desde la interfaz).
             run = self.env['softys.export.run'].create({
-                'connector_id': connector_id,
+                'connector_id': connector.id,
                 'state': 'draft',
             })
-            run_id = run.id
-            self.env.cr.commit()
 
             try:
-                run.action_run_export()
+                with self.env.cr.savepoint():
+                    run.action_run_export()
             except Exception as e:
-                # El cron no debe morir: se deja constancia y se sigue con el
-                # resto de los conectores.
-                self.env.cr.rollback()
-                # Tras el rollback los registros en caché quedan inservibles,
-                # así que se descarta el caché y se vuelven a leer.
-                self.env.clear()
+                # El savepoint deshizo lo que la exportación dejó a medias,
+                # pero la corrida sigue viva: sobre ella se deja el detalle.
                 _logger.exception(
                     'Nextbyn SFTP: falló la corrida diaria del conector %s',
                     company_code)
-                self._registrar_fallo_corrida(run_id, connector_id, e)
+                self._registrar_fallo_corrida(run, connector, e)
 
         return True
 
-    def _registrar_fallo_corrida(self, run_id, connector_id, error):
+    def _registrar_fallo_corrida(self, run, connector, error):
         """
         Deja asentado en la corrida y en el conector por qué falló el envío.
 
-        Se ejecuta después de un rollback, con el caché ya descartado, y en su
-        propia transacción: si registrar el fallo también fallara, el cron
-        igual debe terminar y pasar al siguiente conector.
+        Va en su propio savepoint: si registrar el fallo también fallara, el
+        cron igual debe terminar y pasar al siguiente conector.
         """
         detalle = traceback.format_exc()
         resumen = str(error) or _('Error sin detalle')
 
         try:
-            run = self.env['softys.export.run'].browse(run_id)
-            if run.exists():
+            with self.env.cr.savepoint():
                 run.write({
                     'state': 'failed',
                     'end_date': fields.Datetime.now(),
@@ -281,23 +274,16 @@ class SoftysConnector(models.Model):
                     'sftp_message': detalle,
                 })
                 run._log('error', _('Falló la corrida automática: %s') % resumen)
-
-            connector = self.browse(connector_id)
-            if connector.exists():
                 connector.write({
                     'sftp_last_send': fields.Datetime.now(),
                     'sftp_last_status': 'failed',
                     'sftp_last_message': resumen,
                 })
-                if run.exists():
-                    run._notify_sftp_failure(detalle)
-
-            self.env.cr.commit()
+                run._notify_sftp_failure(detalle)
         except Exception:
-            self.env.cr.rollback()
             _logger.exception(
                 'Nextbyn SFTP: no se pudo registrar el fallo de la corrida %s',
-                run_id)
+                run.id)
 
     def action_send_now(self):
         """Genera y transmite el lote en el momento, desde el conector."""
